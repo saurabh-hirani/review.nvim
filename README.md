@@ -14,6 +14,7 @@ Features added on top of [upstream](https://github.com/georgeguimaraes/review.nv
 - **Toggle marks visibility** ([#4](https://github.com/saurabh-hirani/review.nvim/pull/4)) — marks are cleared on close to prevent leaking into normal buffers; `:Review marks` (or `,Rm`) toggles them back on
 - **Restore edit on close** ([#5](https://github.com/saurabh-hirani/review.nvim/pull/5)) — `codediff.restore_edit_on_close` option controls whether buffers stay readonly after closing a review (default: readonly, to prevent line drift)
 - **Multi-select delete** ([#6](https://github.com/saurabh-hirani/review.nvim/pull/6)) — `D` in readonly mode or `:Review delete` opens fzf multi-select picker to bulk-delete comments with confirmation
+- **Keep marks visible on close** ([#8](https://github.com/saurabh-hirani/review.nvim/pull/8)) — marks stay on buffers after closing review so comments remain visible; use `:Review marks` to hide
 
 ## Features
 
