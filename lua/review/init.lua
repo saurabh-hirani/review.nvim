@@ -173,10 +173,44 @@ function M.close()
     vim.notify(string.format("Exported %d comment(s) to clipboard", count), vim.log.levels.INFO, { title = "review.nvim" })
   end
 
+  -- Clear marks so they don't leak into normal buffers
+  require("review.marks").clear_all()
+  marks_visible = false
+
   -- Close the tab
   vim.cmd("tabclose")
   hooks.on_session_closed()
   storage.clear_revisions()
+end
+
+local marks_visible = true
+
+function M.toggle_marks()
+  local marks = require("review.marks")
+  if marks_visible then
+    marks.clear_all()
+    marks_visible = false
+    vim.notify("Review marks hidden", vim.log.levels.INFO, { title = "review.nvim" })
+  else
+    -- If inside a codediff session, use refresh (aware of sides)
+    local session = hooks.get_session()
+    if session then
+      marks.refresh()
+    else
+      -- Outside session: render on current buffer using relative path
+      local bufnr = vim.api.nvim_get_current_buf()
+      local bufname = vim.api.nvim_buf_get_name(bufnr)
+      if bufname and bufname ~= "" then
+        local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
+        if vim.v.shell_error == 0 and git_root then
+          local rel = bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
+          marks.render_for_buffer(bufnr, "new", rel)
+        end
+      end
+    end
+    marks_visible = true
+    vim.notify("Review marks visible", vim.log.levels.INFO, { title = "review.nvim" })
+  end
 end
 
 function M.export()
