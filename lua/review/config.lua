@@ -5,6 +5,7 @@ local M = {}
 ---@field keymaps ReviewKeymaps
 ---@field codediff ReviewCodediffConfig
 ---@field export ReviewExportConfig
+---@field popup ReviewPopupConfig
 
 ---@class CommentType
 ---@field key string
@@ -47,6 +48,10 @@ local M = {}
 
 ---@class ReviewExportConfig
 ---@field path_style "relative"|"absolute"
+
+---@class ReviewPopupConfig
+---@field type_order string[]
+---@field default_type string
 
 ---@type ReviewConfig
 M.defaults = {
@@ -96,6 +101,10 @@ M.defaults = {
   },
   export = {
     path_style = "relative",
+  },
+  popup = {
+    type_order = { "note", "suggestion", "issue", "praise" },
+    default_type = "note",
   },
 }
 
