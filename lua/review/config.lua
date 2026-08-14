@@ -45,6 +45,7 @@ local M = {}
 
 ---@class ReviewCodediffConfig
 ---@field readonly boolean
+---@field restore_edit_on_close boolean
 
 ---@class ReviewExportConfig
 ---@field path_style "relative"|"absolute"
@@ -98,6 +99,7 @@ M.defaults = {
   },
   codediff = {
     readonly = true,
+    restore_edit_on_close = false,
   },
   export = {
     path_style = "relative",
