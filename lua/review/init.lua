@@ -187,11 +187,7 @@ function M.close()
     end
   end
 
-  -- Clear marks so they don't leak into normal buffers
-  require("review.marks").clear_all()
-  marks_visible = false
-
-  -- Close the tab
+  -- Close the tab (marks stay visible on buffers; use :Review marks to hide)
   vim.cmd("tabclose")
   hooks.on_session_closed()
   storage.clear_revisions()
