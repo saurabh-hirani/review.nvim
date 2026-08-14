@@ -173,6 +173,20 @@ function M.close()
     vim.notify(string.format("Exported %d comment(s) to clipboard", count), vim.log.levels.INFO, { title = "review.nvim" })
   end
 
+  -- Restore edit mode on diff buffers if configured
+  local cfg = require("review.config").get()
+  if cfg.codediff.restore_edit_on_close then
+    local orig_buf, mod_buf = hooks.get_buffers()
+    if orig_buf and vim.api.nvim_buf_is_valid(orig_buf) then
+      vim.api.nvim_set_option_value("modifiable", true, { buf = orig_buf })
+      vim.api.nvim_set_option_value("readonly", false, { buf = orig_buf })
+    end
+    if mod_buf and vim.api.nvim_buf_is_valid(mod_buf) then
+      vim.api.nvim_set_option_value("modifiable", true, { buf = mod_buf })
+      vim.api.nvim_set_option_value("readonly", false, { buf = mod_buf })
+    end
+  end
+
   -- Clear marks so they don't leak into normal buffers
   require("review.marks").clear_all()
   marks_visible = false
