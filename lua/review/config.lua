@@ -4,6 +4,7 @@ local M = {}
 ---@field comment_types table<string, CommentType>
 ---@field keymaps ReviewKeymaps
 ---@field codediff ReviewCodediffConfig
+---@field export ReviewExportConfig
 
 ---@class CommentType
 ---@field key string
@@ -43,6 +44,9 @@ local M = {}
 
 ---@class ReviewCodediffConfig
 ---@field readonly boolean
+
+---@class ReviewExportConfig
+---@field path_style "relative"|"absolute"
 
 ---@type ReviewConfig
 M.defaults = {
@@ -89,6 +93,9 @@ M.defaults = {
   },
   codediff = {
     readonly = true,
+  },
+  export = {
+    path_style = "relative",
   },
 }
 
