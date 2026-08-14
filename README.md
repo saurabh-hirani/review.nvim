@@ -4,6 +4,17 @@ Code review annotations for codediff.nvim, optimized for AI feedback loops.
 
 Inspired by [tuicr](https://github.com/agavra/tuicr).
 
+## Fork changes
+
+Features added on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
+
+- **Fix focus stealing** (#1) — file selection in explorer no longer steals focus back to the diff pane, and review keymaps no longer override explorer keymaps (from upstream [PR #31](https://github.com/georgeguimaraes/review.nvim/pull/31), not yet merged)
+- **Absolute path export** (#2) — `export.path_style = "absolute"` option so exported comments include full file paths, making them unambiguous when pasting into AI agents
+- **Configurable comment type order** (#3) — `popup.type_order` and `popup.default_type` let you choose which comment types appear and in what order (e.g. only suggestion + question)
+- **Toggle marks visibility** (#4) — marks are cleared on close to prevent leaking into normal buffers; `:Review marks` (or `,Rm`) toggles them back on
+- **Restore edit on close** (#5) — `codediff.restore_edit_on_close` option controls whether buffers stay readonly after closing a review (default: readonly, to prevent line drift)
+- **Multi-select delete** (#6) — `D` in readonly mode or `:Review delete` opens fzf multi-select picker to bulk-delete comments with confirmation
+
 ## Features
 
 - Add comments to specific lines in diff view (Note, Suggestion, Issue, Praise)
