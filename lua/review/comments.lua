@@ -23,7 +23,7 @@ function M.add_at_cursor(initial_type)
     return
   end
 
-  popup.open(initial_type or "note", nil, function(comment_type, text)
+  popup.open(initial_type, nil, function(comment_type, text)
     if comment_type and text then
       store.add(file, line, comment_type, text, nil, side)
       vim.schedule(function()
@@ -59,7 +59,7 @@ function M.file_comment(initial_type)
       end
     end)
   else
-    popup.open(initial_type or "note", nil, function(comment_type, text)
+    popup.open(initial_type, nil, function(comment_type, text)
       if comment_type and text then
         store.add(file, 0, comment_type, text)
         vim.schedule(function()
@@ -85,7 +85,7 @@ function M.add_for_range(initial_type)
     return
   end
 
-  popup.open(initial_type or "note", nil, function(comment_type, text)
+  popup.open(initial_type, nil, function(comment_type, text)
     if comment_type and text then
       store.add(file, start_line, comment_type, text, end_line, side)
       vim.schedule(function()

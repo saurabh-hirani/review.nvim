@@ -28,13 +28,14 @@ function M.open(initial_type, initial_text, callback)
   end
 
   local cfg = config.get()
-  local type_keys = { "note", "suggestion", "issue", "praise" }
+  local type_keys = cfg.popup.type_order
   local current_type_idx = 1
 
-  -- Find initial type index
-  if initial_type then
+  -- Find initial type index (use configured default if no initial_type given)
+  local target_type = initial_type or cfg.popup.default_type
+  if target_type then
     for i, key in ipairs(type_keys) do
-      if key == initial_type then
+      if key == target_type then
         current_type_idx = i
         break
       end

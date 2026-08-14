@@ -46,7 +46,16 @@ function M.generate_markdown()
   -- Header
   table.insert(lines, "I reviewed your code and have the following comments. Please address them.")
   table.insert(lines, "")
-  table.insert(lines, "Comment types: ISSUE (problems to fix), SUGGESTION (improvements), NOTE (observations), PRAISE (positive feedback)")
+
+  -- Build comment types description from configured types in popup order
+  local cfg = config.get()
+  local type_descriptions = {}
+  for _, type_key in ipairs(cfg.popup.type_order) do
+    local type_info = cfg.comment_types[type_key]
+    local name = type_info and type_info.name or type_key
+    table.insert(type_descriptions, string.upper(name))
+  end
+  table.insert(lines, "Comment types: " .. table.concat(type_descriptions, ", "))
   table.insert(lines, "Lines prefixed with ~ refer to the old (left) side of the diff.")
   table.insert(lines, "")
 
