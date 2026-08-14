@@ -96,12 +96,13 @@ function M.to_clipboard()
   vim.fn.setreg("+", markdown)
   vim.fn.setreg("*", markdown)
 
-  -- Show content in a bottom split
+  -- Show content in a bottom split (editable — save to re-copy to clipboard)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(markdown, "\n"))
   vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
-  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
+  vim.api.nvim_set_option_value("buftype", "acwrite", { buf = buf })
+  vim.api.nvim_buf_set_name(buf, "review://export")
 
   -- Remember current window to restore focus after closing
   local prev_win = vim.api.nvim_get_current_win()
@@ -111,6 +112,19 @@ function M.to_clipboard()
   local height = math.min(line_count + 1, 15)
   vim.cmd("botright " .. height .. "split")
   vim.api.nvim_win_set_buf(0, buf)
+
+  -- On save, copy buffer contents to clipboard
+  vim.api.nvim_create_autocmd("BufWriteCmd", {
+    buffer = buf,
+    callback = function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local content = table.concat(lines, "\n")
+      vim.fn.setreg("+", content)
+      vim.fn.setreg("*", content)
+      vim.api.nvim_set_option_value("modified", false, { buf = buf })
+      notify("Copied to clipboard", vim.log.levels.INFO)
+    end,
+  })
 
   -- Map q to close the preview and restore focus
   vim.keymap.set("n", "q", function()

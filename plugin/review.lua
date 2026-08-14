@@ -15,6 +15,7 @@ local subcommands = {
   delete = { fn = function() require("review.comments").delete_multi() end, desc = "Select and delete comments" },
   toggle = { fn = function() require("review").toggle_readonly() end, desc = "Toggle readonly/edit mode" },
   marks = { fn = function() require("review").toggle_marks() end, desc = "Toggle comment marks visibility" },
+  annotate = { fn = function() require("review").annotate() end, desc = "Add comment at cursor (any buffer)" },
 }
 
 local subcommand_names = vim.tbl_keys(subcommands)

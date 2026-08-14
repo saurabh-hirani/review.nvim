@@ -193,7 +193,7 @@ function M.close()
   storage.clear_revisions()
 end
 
-local marks_visible = true
+local marks_visible = false
 
 function M.toggle_marks()
   local marks = require("review.marks")
@@ -207,7 +207,8 @@ function M.toggle_marks()
     if session then
       marks.refresh()
     else
-      -- Outside session: render on current buffer using relative path
+      -- Outside session: load store and render on current buffer
+      store.load()
       local bufnr = vim.api.nvim_get_current_buf()
       local bufname = vim.api.nvim_buf_get_name(bufnr)
       if bufname and bufname ~= "" then
@@ -239,6 +240,71 @@ end
 
 function M.count()
   return store.count()
+end
+
+--- Get relative file path for the current buffer (works outside codediff)
+---@return string|nil
+local function get_buffer_rel_path()
+  local bufname = vim.api.nvim_buf_get_name(0)
+  if not bufname or bufname == "" then return nil end
+  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
+  if vim.v.shell_error ~= 0 or not git_root then return nil end
+  return bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
+end
+
+--- Add a comment at cursor in any buffer (no codediff session needed)
+function M.annotate()
+  store.load()
+  local file = get_buffer_rel_path()
+  if not file then
+    vim.notify("Not in a git repo", vim.log.levels.WARN, { title = "review.nvim" })
+    return
+  end
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local existing = store.get_at_line(file, line, "new")
+  if existing then
+    vim.notify("Comment already exists at this line. Use edit instead.", vim.log.levels.WARN, { title = "review.nvim" })
+    return
+  end
+
+  local popup = require("review.popup")
+  popup.open(nil, nil, function(comment_type, text)
+    if comment_type and text then
+      store.add(file, line, comment_type, text, nil, "new")
+      vim.schedule(function()
+        local marks = require("review.marks")
+        marks.render_for_buffer(vim.api.nvim_get_current_buf(), "new", file)
+      end)
+      vim.notify(string.format("Added %s comment", comment_type), vim.log.levels.INFO, { title = "review.nvim" })
+    end
+  end)
+end
+
+--- Add a comment for a visual range in any buffer
+function M.annotate_range()
+  store.load()
+  local file = get_buffer_rel_path()
+  if not file then
+    vim.notify("Not in a git repo", vim.log.levels.WARN, { title = "review.nvim" })
+    return
+  end
+  local start_line = vim.fn.line("'<")
+  local end_line = vim.fn.line("'>")
+  if start_line > end_line then
+    start_line, end_line = end_line, start_line
+  end
+
+  local popup = require("review.popup")
+  popup.open(nil, nil, function(comment_type, text)
+    if comment_type and text then
+      store.add(file, start_line, comment_type, text, end_line, "new")
+      vim.schedule(function()
+        local marks = require("review.marks")
+        marks.render_for_buffer(vim.api.nvim_get_current_buf(), "new", file)
+      end)
+      vim.notify(string.format("Added %s comment", comment_type), vim.log.levels.INFO, { title = "review.nvim" })
+    end
+  end)
 end
 
 function M.add_note()
