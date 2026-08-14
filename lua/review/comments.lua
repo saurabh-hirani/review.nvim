@@ -264,4 +264,76 @@ function M.list()
   end)
 end
 
+function M.delete_multi()
+  local cfg = require("review.config").get()
+  local all_comments = store.get_all()
+
+  if #all_comments == 0 then
+    notify("No comments yet", vim.log.levels.INFO)
+    return
+  end
+
+  -- Build display entries
+  local entries = {}
+  local comment_map = {}
+  for idx, comment in ipairs(all_comments) do
+    local type_info = cfg.comment_types[comment.type]
+    local icon = type_info and type_info.icon or "●"
+    local name = type_info and type_info.name or comment.type
+    local location
+    local is_old = (comment.side or "new") == "old"
+    if comment.line == 0 then
+      location = comment.file
+    elseif is_old then
+      location = string.format("%s:~%d", comment.file, comment.line)
+    else
+      location = string.format("%s:%d", comment.file, comment.line)
+    end
+    local entry = string.format("%d. %s %s [%s] %s", idx, icon, location, name, comment.text)
+    table.insert(entries, entry)
+    comment_map[entry] = comment
+  end
+
+  -- Use fzf-lua multi-select if available, fall back to vim.ui.select
+  local fzf_ok, fzf = pcall(require, "fzf-lua")
+  if fzf_ok then
+    fzf.fzf_exec(entries, {
+      prompt = "Delete comments (Tab to select, Enter to confirm)> ",
+      actions = {
+        ["default"] = function(selected)
+          if not selected or #selected == 0 then return end
+          vim.ui.select({ "Yes", "No" }, {
+            prompt = string.format("Delete %d comment(s)?", #selected),
+          }, function(choice)
+            if choice == "Yes" then
+              for _, sel in ipairs(selected) do
+                local comment = comment_map[sel]
+                if comment then
+                  store.delete(comment.id)
+                end
+              end
+              vim.schedule(function()
+                marks.refresh()
+              end)
+              notify(string.format("Deleted %d comment(s)", #selected), vim.log.levels.INFO)
+            end
+          end)
+        end,
+      },
+      fzf_opts = { ["--multi"] = "" },
+    })
+  else
+    -- Fallback: delete one at a time
+    vim.ui.select(entries, { prompt = "Delete comment:" }, function(choice)
+      if not choice then return end
+      local comment = comment_map[choice]
+      if comment then
+        store.delete(comment.id)
+        vim.schedule(function() marks.refresh() end)
+        notify("Comment deleted", vim.log.levels.INFO)
+      end
+    end)
+  end
+end
+
 return M

@@ -88,6 +88,7 @@ M.defaults = {
     -- Readonly mode (simple keys)
     readonly_add = "i",
     readonly_delete = "d",
+    readonly_delete_multi = "D",
     readonly_edit = "e",
     readonly_add_file = "F",
     -- Help
