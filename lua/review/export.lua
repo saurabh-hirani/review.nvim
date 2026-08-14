@@ -1,9 +1,36 @@
 local M = {}
 
+local config = require("review.config")
 local store = require("review.store")
 
 local function notify(msg, level)
   vim.notify(msg, level, { title = "review.nvim" })
+end
+
+---@return string|nil
+local function get_git_root()
+  local handle = io.popen("git rev-parse --show-toplevel 2>/dev/null")
+  if handle then
+    local result = handle:read("*a")
+    handle:close()
+    if result and result ~= "" then
+      return result:gsub("%s+$", "")
+    end
+  end
+  return nil
+end
+
+---@param file string
+---@return string
+local function resolve_path(file)
+  local cfg = config.get()
+  if cfg.export.path_style == "absolute" then
+    local git_root = get_git_root()
+    if git_root then
+      return git_root .. "/" .. file
+    end
+  end
+  return file
 end
 
 ---@return string
@@ -27,19 +54,20 @@ function M.generate_markdown()
   for i, comment in ipairs(all_comments) do
     local type_name = string.upper(comment.type)
     local location
+    local file_path = resolve_path(comment.file)
     local is_old = (comment.side or "new") == "old"
     if comment.line == 0 then
-      location = comment.file
+      location = file_path
     elseif is_old then
       if comment.line_end and comment.line_end ~= comment.line then
-        location = string.format("%s:~%d-~%d", comment.file, comment.line, comment.line_end)
+        location = string.format("%s:~%d-~%d", file_path, comment.line, comment.line_end)
       else
-        location = string.format("%s:~%d", comment.file, comment.line)
+        location = string.format("%s:~%d", file_path, comment.line)
       end
     elseif comment.line_end and comment.line_end ~= comment.line then
-      location = string.format("%s:%d-%d", comment.file, comment.line, comment.line_end)
+      location = string.format("%s:%d-%d", file_path, comment.line, comment.line_end)
     else
-      location = string.format("%s:%d", comment.file, comment.line)
+      location = string.format("%s:%d", file_path, comment.line)
     end
     table.insert(lines, string.format("%d. **[%s]** `%s` - %s", i, type_name, location, comment.text))
   end
