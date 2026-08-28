@@ -11,6 +11,9 @@ local comments = require("review.comments")
 
 local initialized = false
 local augroup = nil
+-- Only attach review hooks/keymaps to codediff sessions that review itself
+-- opened (via :Review). A bare :CodeDiff session stays plain codediff.
+local review_active = false
 
 ---@param opts? ReviewConfig
 function M.setup(opts)
@@ -37,6 +40,7 @@ function M.setup(opts)
     group = augroup,
     callback = function()
       hooks.on_session_closed()
+      review_active = false
     end,
   })
 
@@ -67,6 +71,10 @@ end
 
 -- Handle file selection: refresh hooks/keymaps without stealing focus
 function M._on_file_select()
+  if not review_active then
+    return
+  end
+
   local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
   if not ok then
     return
@@ -84,6 +92,11 @@ end
 
 -- Check if current tab is a CodeDiff session and set up hooks/keymaps
 function M._check_codediff_session()
+  -- Skip sessions review didn't open (e.g. bare :CodeDiff / space+gv)
+  if not review_active then
+    return
+  end
+
   local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
   if not ok then
     return
@@ -108,6 +121,9 @@ local function open_codediff_with_revisions(rev1, rev2)
     vim.notify("codediff.nvim is required", vim.log.levels.ERROR, { title = "review.nvim" })
     return
   end
+
+  -- Mark that review owns the session it is about to open
+  review_active = true
 
   -- Scope storage to revision range for commit reviews
   if rev1 and rev2 then
@@ -191,6 +207,7 @@ function M.close()
   vim.cmd("tabclose")
   hooks.on_session_closed()
   storage.clear_revisions()
+  review_active = false
 end
 
 local marks_visible = false
