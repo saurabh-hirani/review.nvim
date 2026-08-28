@@ -16,6 +16,7 @@ Features added on top of [upstream](https://github.com/georgeguimaraes/review.nv
 - **Multi-select delete** ([#6](https://github.com/saurabh-hirani/review.nvim/pull/6)) — `D` in readonly mode or `:Review delete` opens fzf multi-select picker to bulk-delete comments with confirmation
 - **Keep marks visible on close** ([#8](https://github.com/saurabh-hirani/review.nvim/pull/8)) — marks stay on buffers after closing review so comments remain visible; use `:Review marks` to hide
 - **Annotate normal buffers** ([#9](https://github.com/saurabh-hirani/review.nvim/pull/9)) — `,Ra` adds comments on any buffer without opening diff view; export preview is editable (`:w` re-copies to clipboard)
+- **Scope review to its own sessions** ([`c19c338`](https://github.com/saurabh-hirani/review.nvim/commit/c19c338)) — review only attaches its hooks/keymaps to codediff sessions it opened via `:Review`; a bare `:CodeDiff` stays plain codediff (no comment keymaps or help popup bolted on)
 
 ## Features
 
