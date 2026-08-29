@@ -92,6 +92,12 @@ local function show_help()
     table.insert(tbl, { key = format_key(key), desc = desc })
   end
 
+  -- Add a help entry from a literal lhs (used for derived per-type keymaps).
+  local function entry_lhs(lhs, desc, tbl)
+    if not is_enabled(lhs) then return end
+    table.insert(tbl, { key = format_key(lhs), desc = desc })
+  end
+
   if readonly then
     entry("readonly_add", "Add comment", comment_entries)
     entry("readonly_edit", "Edit comment", comment_entries)
@@ -99,10 +105,17 @@ local function show_help()
     entry("readonly_add_file", "File-level comment", comment_entries)
   else
     entry("add_comment", "Add comment (pick type)", comment_entries)
-    entry("add_note", "Add note", comment_entries)
-    entry("add_suggestion", "Add suggestion", comment_entries)
-    entry("add_issue", "Add issue", comment_entries)
-    entry("add_praise", "Add praise", comment_entries)
+    if is_enabled(km.add_type_prefix) then
+      for _, type_key in ipairs(cfg.popup.type_order) do
+        local type_info = cfg.comment_types[type_key]
+        if type_info and type_info.key then
+          local lhs = km.add_type_prefix .. type_info.key
+          if lhs ~= km.add_comment then
+            entry_lhs(lhs, "Add " .. (type_info.name or type_key), comment_entries)
+          end
+        end
+      end
+    end
     entry("add_file_comment", "File comment", comment_entries)
     entry("edit_comment", "Edit comment", comment_entries)
     entry("delete_comment", "Delete comment", comment_entries)
@@ -255,14 +268,27 @@ local function set_buffer_keymaps(bufnr)
     -- EDIT MODE: Typed add keymaps with visual mode support
     set(km.add_comment, function() comments.add_with_menu() end, "Add comment (pick type)")
     set_visual(km.add_comment, ":<C-u>lua require('review.comments').add_for_range()<CR>", "Add comment for selection")
-    set(km.add_note, function() comments.add_at_cursor("note") end, "Add note")
-    set_visual(km.add_note, ":<C-u>lua require('review.comments').add_for_range('note')<CR>", "Add note for selection")
-    set(km.add_suggestion, function() comments.add_at_cursor("suggestion") end, "Add suggestion")
-    set_visual(km.add_suggestion, ":<C-u>lua require('review.comments').add_for_range('suggestion')<CR>", "Add suggestion for selection")
-    set(km.add_issue, function() comments.add_at_cursor("issue") end, "Add issue")
-    set_visual(km.add_issue, ":<C-u>lua require('review.comments').add_for_range('issue')<CR>", "Add issue for selection")
-    set(km.add_praise, function() comments.add_at_cursor("praise") end, "Add praise")
-    set_visual(km.add_praise, ":<C-u>lua require('review.comments').add_for_range('praise')<CR>", "Add praise for selection")
+    -- Derive per-type add keymaps from comment_types (in popup order), so custom
+    -- types are first-class and no type is hardcoded. Skip any that collide with
+    -- add_comment's lhs.
+    if is_enabled(km.add_type_prefix) then
+      for _, type_key in ipairs(cfg.popup.type_order) do
+        local type_info = cfg.comment_types[type_key]
+        if type_info and type_info.key then
+          local lhs = km.add_type_prefix .. type_info.key
+          if lhs == km.add_comment then
+            vim.notify(
+              string.format("review.nvim: skipping add keymap for '%s' (key '%s' collides with add_comment %q)", type_key, type_info.key, km.add_comment),
+              vim.log.levels.WARN,
+              { title = "review.nvim" }
+            )
+          else
+            set(lhs, function() comments.add_at_cursor(type_key) end, "Add " .. (type_info.name or type_key))
+            set_visual(lhs, string.format(":<C-u>lua require('review.comments').add_for_range(%q)<CR>", type_key), "Add " .. (type_info.name or type_key) .. " for selection")
+          end
+        end
+      end
+    end
     set(km.add_file_comment, function() comments.file_comment() end, "File comment")
     set(km.delete_comment, function() comments.delete_at_cursor() end, "Delete comment")
     set(km.edit_comment, function() comments.edit_at_cursor() end, "Edit comment")

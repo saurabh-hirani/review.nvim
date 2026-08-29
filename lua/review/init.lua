@@ -324,20 +324,10 @@ function M.annotate_range()
   end)
 end
 
-function M.add_note()
-  comments.add_at_cursor("note")
-end
-
-function M.add_suggestion()
-  comments.add_at_cursor("suggestion")
-end
-
-function M.add_issue()
-  comments.add_at_cursor("issue")
-end
-
-function M.add_praise()
-  comments.add_at_cursor("praise")
+--- Add a comment of the given type at the cursor.
+---@param comment_type string a key from config.comment_types (e.g. "note")
+function M.add(comment_type)
+  comments.add_at_cursor(comment_type)
 end
 
 function M.toggle_readonly()

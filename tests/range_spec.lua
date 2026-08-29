@@ -8,7 +8,12 @@ describe("line-range comments", function()
 
   before_each(function()
     store.clear()
-    config.setup()
+    config.setup({
+      comment_types = {
+        issue = { key = "i", name = "Issue", icon = "!", hl = "ReviewIssue", line_hl = "ReviewIssueLine" },
+      },
+      popup = { type_order = { "issue" }, default_type = "issue" },
+    })
 
     bufnr = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {

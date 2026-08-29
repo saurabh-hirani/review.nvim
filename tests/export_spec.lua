@@ -1,5 +1,6 @@
 local store = require("review.store")
 local export = require("review.export")
+local config = require("review.config")
 
 describe("review.export", function()
   before_each(function()
@@ -52,6 +53,51 @@ describe("review.export", function()
       local md = export.generate_markdown()
       assert.matches("src/main.lua:10", md)
       assert.not_matches("~10", md)
+    end)
+  end)
+
+  describe("configurable preamble", function()
+    after_each(function()
+      config.setup({})
+    end)
+
+    it("uses default header and side_note", function()
+      store.add("a.lua", 1, "note", "x")
+      local md = export.generate_markdown()
+      assert.matches("I reviewed your code", md)
+      assert.matches("Lines prefixed with ~", md)
+    end)
+
+    it("uses a custom header", function()
+      config.setup({ export = { header = "Custom intro." } })
+      store.add("a.lua", 1, "note", "x")
+      local md = export.generate_markdown()
+      assert.matches("Custom intro%.", md)
+      assert.not_matches("I reviewed your code", md)
+    end)
+
+    it("omits header when set to false", function()
+      config.setup({ export = { header = false } })
+      store.add("a.lua", 1, "note", "x")
+      local md = export.generate_markdown()
+      assert.not_matches("I reviewed your code", md)
+    end)
+
+    it("omits side_note when set to false", function()
+      config.setup({ export = { side_note = false } })
+      store.add("a.lua", 1, "note", "x")
+      local md = export.generate_markdown()
+      assert.not_matches("Lines prefixed with ~", md)
+    end)
+
+    it("derives Comment types line from popup.type_order names", function()
+      config.setup({
+        comment_types = { question = { key = "q", name = "Question", icon = "?", hl = "ReviewNote", line_hl = "ReviewNoteLine" } },
+        popup = { type_order = { "suggestion", "question" }, default_type = "suggestion" },
+      })
+      store.add("a.lua", 1, "suggestion", "x")
+      local md = export.generate_markdown()
+      assert.matches("Comment types: SUGGESTION, QUESTION", md)
     end)
   end)
 end)
