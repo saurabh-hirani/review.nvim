@@ -11,6 +11,10 @@ An opinionated fork of [georgeguimaraes/review.nvim](https://github.com/georgegu
 
 That set works well, and for most people it's all they need. But the types, their icons, their colours, the keys that add them, and the words that wrap the export are all fixed in the plugin. I wanted to define those myself. So this fork strips the defaults out and hands you the definitions instead. Read on for why, or jump to [Configuration](#configuration) for a config you can copy.
 
+![A review in progress: inline comments on a diff (top) and the exported markdown ready to paste into an agent (bottom).](docs/review-demo.png)
+
+*A review with two types from a custom config: a green suggestion and a magenta question. The top pane shows the comments inline on the diff (gutter icon, box, line tint); the bottom pane shows the exported markdown, including the custom preamble and per-line tags, ready to paste into a coding agent.*
+
 ## Why the fork?
 
 The way you talk to a coding agent is personal. One person reviews with just "suggestion" and "question". Another wants "blocker", "nit", and "praise". The labels, the icons, the colours, the keys you press, and the words that wrap your exported comments are part of *your* workflow, not something a plugin should decide for you.
