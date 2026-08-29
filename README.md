@@ -2,15 +2,6 @@
 
 An opinionated fork of [georgeguimaraes/review.nvim](https://github.com/georgeguimaraes/review.nvim). review.nvim gives you code review annotations for [codediff.nvim](https://github.com/esmuellert/codediff.nvim), tuned for AI feedback loops: you review a diff, drop comments on lines, and export them as structured markdown to paste into your coding agent.
 
-[georgeguimaraes/review.nvim](https://github.com/georgeguimaraes/review.nvim) gives you a full review workflow inside Neovim. You add a comment to a line by choosing a **comment type** (a labelled category like Note, Suggestion, Issue, or Praise), and each type carries its own icon and colour. Out of the box you get:
-
-- a side-by-side diff of your changes, with a file panel to move between them
-- comments on any line, a multi-line range, or a whole file, from a ready-made set of comment types (Note, Suggestion, Issue, Praise)
-- each comment shown inline as a gutter icon, a coloured box, and a line highlight, with icons and colours already set
-- comments that persist per branch and export as structured markdown you can paste into a coding agent
-
-That set works well, and for most people it's all they need. But the types, their icons, their colours, the keys that add them, and the words that wrap the export are all fixed in the plugin. I wanted to define those myself. So this fork strips the defaults out and hands you the definitions instead. Read on for why, or jump to [Configuration](#configuration) for a config you can copy.
-
 ![A review in progress: inline comments on a diff (top) and the exported markdown ready to paste into an agent (bottom).](docs/review-demo.png)
 
 *A review with two types from a custom config: a green suggestion and a magenta question. The top pane shows the comments inline on the diff (gutter icon, box, line tint); the bottom pane shows the exported markdown, including the custom preamble and per-line tags, ready to paste into a coding agent.*
@@ -19,7 +10,7 @@ That set works well, and for most people it's all they need. But the types, thei
 
 The way you talk to a coding agent is personal. One person reviews with just "suggestion" and "question". Another wants "blocker", "nit", and "praise". The labels, the icons, the colours, the keys you press, and the words that wrap your exported comments are part of *your* workflow, not something a plugin should decide for you.
 
-Upstream ships an opinionated set of comment types (Note, Suggestion, Issue, Praise) with fixed keymaps and fixed highlight colours baked in. This fork takes the opposite stance:
+[georgeguimaraes/review.nvim](https://github.com/georgeguimaraes/review.nvim) is the plugin I forked, and it laid the whole foundation: a side-by-side diff with a file panel, comments on any line or range or whole file, each shown as a gutter icon, a coloured box, and a line highlight, plus per-branch persistence and markdown export. It works well and for most people it's all they need. But it ships a fixed set of comment types (Note, Suggestion, Issue, Praise) with fixed keymaps and fixed colours baked in. I wanted to define those myself. This fork takes the opposite stance:
 
 **You bring your own constructs. The plugin imposes nothing.**
 
