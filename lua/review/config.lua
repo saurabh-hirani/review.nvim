@@ -16,10 +16,7 @@ local M = {}
 
 ---@class ReviewKeymaps
 ---@field add_comment string|false
----@field add_note string|false
----@field add_suggestion string|false
----@field add_issue string|false
----@field add_praise string|false
+---@field add_type_prefix string|false
 ---@field delete_comment string|false
 ---@field edit_comment string|false
 ---@field next_comment string|false
@@ -49,26 +46,24 @@ local M = {}
 
 ---@class ReviewExportConfig
 ---@field path_style "relative"|"absolute"
+---@field header string|false intro line(s) before the comment list; false to omit
+---@field side_note string|false explanation of the ~ (old-side) prefix; false to omit
 
 ---@class ReviewPopupConfig
 ---@field type_order string[]
----@field default_type string
+---@field default_type? string
 
 ---@type ReviewConfig
 M.defaults = {
-  comment_types = {
-    note = { key = "n", name = "Note", icon = "📝", hl = "ReviewNote", line_hl = "ReviewNoteLine" },
-    suggestion = { key = "s", name = "Suggestion", icon = "💡", hl = "ReviewSuggestion", line_hl = "ReviewSuggestionLine" },
-    issue = { key = "i", name = "Issue", icon = "⚠️", hl = "ReviewIssue", line_hl = "ReviewIssueLine" },
-    praise = { key = "p", name = "Praise", icon = "✨", hl = "ReviewPraise", line_hl = "ReviewPraiseLine" },
-  },
+  -- No comment types are shipped by default: the user defines them entirely.
+  -- See the README for ready-to-copy examples (note/suggestion/issue/praise, etc).
+  comment_types = {},
   keymaps = {
     -- Edit mode (leader-based)
     add_comment = "<localleader>cc",
-    add_note = "<localleader>cn",
-    add_suggestion = "<localleader>cs",
-    add_issue = "<localleader>ci",
-    add_praise = "<localleader>cp",
+    -- Per-type add keymaps are derived as add_type_prefix .. comment_type.key
+    -- (e.g. prefix "<localleader>c" + note key "n" = "<localleader>cn").
+    add_type_prefix = "<localleader>c",
     add_file_comment = "<localleader>cf",
     delete_comment = "<localleader>cd",
     edit_comment = "<localleader>ce",
@@ -104,10 +99,12 @@ M.defaults = {
   },
   export = {
     path_style = "relative",
+    header = "I reviewed your code and have the following comments. Please address them.",
+    side_note = "Lines prefixed with ~ refer to the old (left) side of the diff.",
   },
   popup = {
-    type_order = { "note", "suggestion", "issue", "praise" },
-    default_type = "note",
+    type_order = {},
+    default_type = nil,
   },
 }
 
@@ -116,7 +113,14 @@ M.config = vim.deepcopy(M.defaults)
 
 ---@param opts? ReviewConfig
 function M.setup(opts)
-  M.config = vim.tbl_deep_extend("force", M.defaults, opts or {})
+  opts = opts or {}
+  M.config = vim.tbl_deep_extend("force", M.defaults, opts)
+  -- comment_types is a set of user-defined types, not a partial override: if the
+  -- user supplies it, replace the defaults wholesale so built-in types don't leak
+  -- in via deep-merge. (type_order is an array, so it already replaces cleanly.)
+  if opts.comment_types then
+    M.config.comment_types = opts.comment_types
+  end
 end
 
 ---@return ReviewConfig

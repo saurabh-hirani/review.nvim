@@ -2,7 +2,7 @@ local M = {}
 
 local config = require("review.config")
 
----@param initial_type? "note"|"suggestion"|"issue"|"praise"
+---@param initial_type? string a comment type key from config.comment_types
 ---@param initial_text? string
 ---@param callback fun(comment_type: string|nil, text: string|nil)
 function M.open(initial_type, initial_text, callback)
@@ -11,6 +11,17 @@ function M.open(initial_type, initial_text, callback)
 
   if not (ok_popup and ok_layout) then
     vim.notify("nui.nvim is required for comment input", vim.log.levels.ERROR, { title = "review.nvim" })
+    callback(nil, nil)
+    return
+  end
+
+  local cfg = config.get()
+  if not cfg.popup.type_order or #cfg.popup.type_order == 0 then
+    vim.notify(
+      "review.nvim: no comment types configured. Set comment_types and popup.type_order in setup(). See the README for examples.",
+      vim.log.levels.ERROR,
+      { title = "review.nvim" }
+    )
     callback(nil, nil)
     return
   end
@@ -27,7 +38,6 @@ function M.open(initial_type, initial_text, callback)
     end, 10)
   end
 
-  local cfg = config.get()
   local type_keys = cfg.popup.type_order
   local current_type_idx = 1
 

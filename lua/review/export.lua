@@ -42,13 +42,15 @@ function M.generate_markdown()
   end
 
   local lines = {}
+  local cfg = config.get()
 
-  -- Header
-  table.insert(lines, "I reviewed your code and have the following comments. Please address them.")
-  table.insert(lines, "")
+  -- Header (configurable; false/empty to omit)
+  if cfg.export.header and cfg.export.header ~= "" then
+    table.insert(lines, cfg.export.header)
+    table.insert(lines, "")
+  end
 
   -- Build comment types description from configured types in popup order
-  local cfg = config.get()
   local type_descriptions = {}
   for _, type_key in ipairs(cfg.popup.type_order) do
     local type_info = cfg.comment_types[type_key]
@@ -56,7 +58,9 @@ function M.generate_markdown()
     table.insert(type_descriptions, string.upper(name))
   end
   table.insert(lines, "Comment types: " .. table.concat(type_descriptions, ", "))
-  table.insert(lines, "Lines prefixed with ~ refer to the old (left) side of the diff.")
+  if cfg.export.side_note and cfg.export.side_note ~= "" then
+    table.insert(lines, cfg.export.side_note)
+  end
   table.insert(lines, "")
 
   -- Numbered list of comments

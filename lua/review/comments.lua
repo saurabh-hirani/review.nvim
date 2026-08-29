@@ -9,7 +9,7 @@ local function notify(msg, level)
   vim.notify(msg, level, { title = "review.nvim" })
 end
 
----@param initial_type? "note"|"suggestion"|"issue"|"praise"
+---@param initial_type? string a comment type key from config.comment_types
 function M.add_at_cursor(initial_type)
   local file, line, side = hooks.get_cursor_position()
   if not file or not line then
@@ -39,7 +39,7 @@ function M.add_with_menu()
   M.add_at_cursor()
 end
 
----@param initial_type? "note"|"suggestion"|"issue"|"praise"
+---@param initial_type? string a comment type key from config.comment_types
 function M.file_comment(initial_type)
   local file = hooks.get_cursor_position()
   if not file then
@@ -71,7 +71,7 @@ function M.file_comment(initial_type)
   end
 end
 
----@param initial_type? "note"|"suggestion"|"issue"|"praise"
+---@param initial_type? string a comment type key from config.comment_types
 function M.add_for_range(initial_type)
   local file, start_line, end_line, side = hooks.get_visual_range()
   if not file or not start_line or not end_line then
