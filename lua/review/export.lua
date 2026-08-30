@@ -295,15 +295,22 @@ function M.to_tmux()
   end
 end
 
----Send `text` to a single herdr pane `pane_id`, optionally pressing Enter.
----Args are passed as a list so no shell quoting is needed.
+---Send `text` to a single herdr pane `pane_id`, optionally pressing Enter, then
+---optionally focusing the target. Args are passed as a list so no shell quoting
+---is needed. Focus uses `pane focus --direction` (herdr focus is direction-based;
+---`--pane` is not supported), so focus-follow only applies to directional
+---targets — hence `direction` is passed through from the picker choice.
 ---@param pane_id string
 ---@param text string
 ---@param send_enter boolean
-local function herdr_send(pane_id, text, send_enter)
+---@param direction string|nil direction the target was chosen by, for focus-follow
+local function herdr_send(pane_id, text, send_enter, direction)
   vim.fn.system({ "herdr", "pane", "send-text", pane_id, text })
   if send_enter then
     vim.fn.system({ "herdr", "pane", "send-keys", pane_id, "Enter" })
+  end
+  if config.get().herdr.focus and direction then
+    vim.fn.system({ "herdr", "pane", "focus", "--direction", direction, "--current" })
   end
 end
 
@@ -339,23 +346,25 @@ local DIRECTION_LABELS = {
   down = "\u{2193} pane below",
 }
 
----Resolve a picker choice into a herdr pane id. Exposed for testing.
+---Resolve a picker choice into a herdr pane id, plus the direction it came from
+---(nil for non-directional choices). Exposed for testing.
 ---A direction word or its arrow label (e.g. "right" / "→ pane on the right")
 ---resolves to that neighbor of the calling pane. "current"/"current pane" maps
 ---to $HERDR_PANE_ID. Otherwise the leading token is the opaque pane id
 ---(e.g. "w1:p1" from a "w1:p1  claude" line).
 ---@param choice string
----@return string|nil
+---@return string|nil pane_id
+---@return string|nil direction
 function M._herdr_target_of(choice)
   if choice == "current" or choice:match("^current pane") then
-    return vim.env.HERDR_PANE_ID
+    return vim.env.HERDR_PANE_ID, nil
   end
   for direction, label in pairs(DIRECTION_LABELS) do
     if choice == direction or choice == label then
-      return herdr_neighbor(direction)
+      return herdr_neighbor(direction), direction
     end
   end
-  return choice:match("^(%S+)")
+  return choice:match("^(%S+)"), nil
 end
 
 ---Live herdr panes as picker lines "<pane_id>  <agent/label/short-cwd>". Exposed
@@ -411,9 +420,9 @@ function M.to_herdr()
   -- If auto_select_panes is set, send directly without prompting.
   if cfg.auto_select_panes and #cfg.auto_select_panes > 0 then
     for _, pane in ipairs(cfg.auto_select_panes) do
-      local target = M._herdr_target_of(pane)
+      local target, direction = M._herdr_target_of(pane)
       if target then
-        herdr_send(target, markdown, send_enter)
+        herdr_send(target, markdown, send_enter, direction)
       end
     end
     notify(string.format("Sent %d comment(s) to herdr", count), vim.log.levels.INFO)
@@ -449,9 +458,9 @@ function M.to_herdr()
       return
     end
     for _, choice in ipairs(selected) do
-      local target = M._herdr_target_of(choice)
+      local target, direction = M._herdr_target_of(choice)
       if target then
-        herdr_send(target, markdown, send_enter)
+        herdr_send(target, markdown, send_enter, direction)
       end
     end
     notify(string.format("Sent %d comment(s) to herdr", count), vim.log.levels.INFO)

@@ -71,6 +71,7 @@ local M = {}
 ---@field send_enter boolean press Enter after sending (submit immediately); default false
 ---@field panes string[] convenience targets offered in the picker; a direction ("right"/"left"/"up"/"down") = that neighbor of the calling pane, "current" = calling pane ($HERDR_PANE_ID), or an explicit pane id
 ---@field auto_select_panes string[] if non-empty, send to these targets directly without prompting (same vocabulary as panes)
+---@field focus boolean focus the target pane after sending; directional targets only (default true)
 
 ---@type ReviewConfig
 M.defaults = {
@@ -159,6 +160,9 @@ M.defaults = {
     -- If non-empty, send to these targets directly and skip the picker
     -- (same vocabulary as panes: a direction, "current", or a pane id).
     auto_select_panes = {},
+    -- true: focus the target pane after sending. Focus-follow only applies to
+    -- directional targets (herdr's pane focus is direction-based).
+    focus = true,
   },
 }
 

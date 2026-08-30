@@ -14,6 +14,15 @@ describe("review herdr", function()
       assert.equal("w1:p1", export._herdr_target_of("w1:p1  nvim"))
       assert.equal("w2:p3", export._herdr_target_of("w2:p3"))
     end)
+
+    it("returns a nil direction for non-directional targets", function()
+      vim.env.HERDR_PANE_ID = "w1:p9"
+      local _, dir_current = export._herdr_target_of("current")
+      local _, dir_id = export._herdr_target_of("w1:p1  nvim")
+      assert.is_nil(dir_current)
+      assert.is_nil(dir_id)
+      vim.env.HERDR_PANE_ID = nil
+    end)
   end)
 
   describe("_herdr_pane_items", function()
@@ -67,6 +76,7 @@ describe("review herdr", function()
       assert.is_false(cfg.herdr.send_enter)
       assert.same({ "right" }, cfg.herdr.panes)
       assert.same({}, cfg.herdr.auto_select_panes)
+      assert.is_true(cfg.herdr.focus)
     end)
   end)
 end)
