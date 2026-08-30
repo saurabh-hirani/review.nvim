@@ -8,6 +8,7 @@ local M = {}
 ---@field popup ReviewPopupConfig
 ---@field storage ReviewStorageConfig
 ---@field tmux ReviewTmuxConfig
+---@field herdr ReviewHerdrConfig
 
 ---@class CommentType
 ---@field key string
@@ -27,6 +28,7 @@ local M = {}
 ---@field export_clipboard string|false
 ---@field send_sidekick string|false
 ---@field send_tmux string|false
+---@field send_herdr string|false
 ---@field clear_comments string|false
 ---@field close string|false
 ---@field toggle_readonly string|false
@@ -65,6 +67,11 @@ local M = {}
 ---@field panes string[] pane targets always offered in the picker (besides live panes); "+" means next pane
 ---@field auto_select_panes string[] if non-empty, send to these panes directly without prompting
 
+---@class ReviewHerdrConfig
+---@field send_enter boolean press Enter after sending (submit immediately); default false
+---@field panes string[] convenience targets offered in the picker; a direction ("right"/"left"/"up"/"down") = that neighbor of the calling pane, "current" = calling pane ($HERDR_PANE_ID), or an explicit pane id
+---@field auto_select_panes string[] if non-empty, send to these targets directly without prompting (same vocabulary as panes)
+
 ---@type ReviewConfig
 M.defaults = {
   -- No comment types are shipped by default: the user defines them entirely.
@@ -90,6 +97,7 @@ M.defaults = {
     export_clipboard = "C",
     send_sidekick = "S",
     send_tmux = "T",
+    send_herdr = "H",
     clear_comments = "<C-r>",
     close = "q",
     toggle_readonly = "R",
@@ -136,6 +144,20 @@ M.defaults = {
     -- "+" is the next pane; you can also list explicit targets like "1.2".
     panes = { "+" },
     -- If non-empty, send to these panes directly and skip the picker.
+    auto_select_panes = {},
+  },
+  herdr = {
+    -- false: leave the text in the pane without submitting. true: press Enter
+    -- after sending, submitting it immediately (handy for agent CLIs).
+    send_enter = false,
+    -- Convenience targets offered on top of the live panes. A direction
+    -- ("right"/"left"/"up"/"down") resolves to that neighbor of the calling
+    -- pane -- "right" suits an editor-left / agent-right layout. "current" is
+    -- the calling pane ($HERDR_PANE_ID); you can also list explicit opaque
+    -- pane ids like "w1:p1".
+    panes = { "right" },
+    -- If non-empty, send to these targets directly and skip the picker
+    -- (same vocabulary as panes: a direction, "current", or a pane id).
     auto_select_panes = {},
   },
 }

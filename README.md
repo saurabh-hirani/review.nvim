@@ -85,6 +85,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim). Because nothing ships by 
 :Review preview      " Preview exported markdown in a split
 :Review sidekick     " Send comments to sidekick.nvim
 :Review tmux         " Send comments to a tmux pane
+:Review herdr        " Send comments to a herdr pane
 :Review list         " List all comments
 :Review delete       " Multi-select picker to bulk-delete comments
 :Review clear        " Clear all comments
@@ -103,7 +104,7 @@ For a multi-line comment, visually select the range first, then press `i`. For a
 
 Use `]n` / `[n` to jump between comments, `e` to edit, `d` to delete, `D` to bulk-delete. Press `c` to list all comments and jump to any of them. Press `?` for a help popup listing your active keymaps.
 
-When you're done, press `q` to close. This copies all comments to the clipboard as structured markdown and shows a preview. Paste it into your agent, or press `S` to send to [sidekick.nvim](https://github.com/folke/sidekick.nvim), or `T` to send it to a tmux pane. The format looks like this:
+When you're done, press `q` to close. This copies all comments to the clipboard as structured markdown and shows a preview. Paste it into your agent, or press `S` to send to [sidekick.nvim](https://github.com/folke/sidekick.nvim), `T` to send it to a tmux pane, or `H` to send it to a [herdr](https://github.com/herdr) pane. The format looks like this:
 
 ```
 1. **[SUGGESTION]** `src/api.py:23` - prefer a set here
@@ -223,6 +224,24 @@ opts = {
 
 Set `auto_select_panes = { "1.2" }` (window.pane) to always send to a fixed pane, and `send_enter = true` to submit the message immediately in an agent CLI. The picker uses fzf-lua when available and falls back to `vim.ui.select`. Like sidekick, it honours `export.types`.
 
+### Send to herdr
+
+`H` (or `:Review herdr`) sends the exported markdown to a [herdr](https://github.com/herdr) pane, the herdr analogue of `T`. It only works from inside a herdr session (`$HERDR_ENV = 1`). The picker is scoped to the current herdr workspace (like tmux scopes to the current session) and its top entry is the pane to your right — for an editor-left / agent-right layout that is your agent. Pick one (or several — Tab to multi-select under fzf-lua) and the comments are sent with `herdr pane send-text`. Configure it with the `herdr` block:
+
+```lua
+opts = {
+  herdr = {
+    send_enter = false,        -- true: press Enter after sending (submit immediately)
+    panes = { "right" },       -- convenience targets on top of the live panes; a direction
+                               -- ("right"/"left"/"up"/"down") = that neighbour of the calling
+                               -- pane, "current" = the calling pane, or an explicit pane id
+    auto_select_panes = {},    -- non-empty: send to these targets directly, skipping the picker
+  },
+}
+```
+
+`panes = { "right" }` suits editor-left / agent-right; use another direction, `"current"`, or an explicit pane id (e.g. `"w1:p2"`) to match your layout. Set `auto_select_panes = { "right" }` to always fire to the right pane without the picker, and `send_enter = true` to submit immediately in an agent CLI. The picker uses fzf-lua when available and falls back to `vim.ui.select`. Like sidekick, it honours `export.types`.
+
 ### Keymap options
 
 All keymaps can be set to `false` to disable them. Per-type add-keymaps are **not** listed here; they are derived from `add_type_prefix` + each type's `key`.
@@ -243,6 +262,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `export_clipboard` | `C` | Export to clipboard |
 | `send_sidekick` | `S` | Send comments to sidekick |
 | `send_tmux` | `T` | Send comments to a tmux pane |
+| `send_herdr` | `H` | Send comments to a herdr pane |
 | `clear_comments` | `<C-r>` | Clear all comments |
 | `close` | `q` | Close and export |
 | `toggle_readonly` | `R` | Toggle readonly/edit mode |
@@ -289,6 +309,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `C` | Export to clipboard and preview |
 | `S` | Send comments to sidekick.nvim |
 | `T` | Send comments to a tmux pane |
+| `H` | Send comments to a herdr pane |
 | `<C-r>` | Clear all comments |
 | `q` | Close and export |
 | `t` | Toggle side-by-side/inline layout |

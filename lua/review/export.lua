@@ -295,4 +295,183 @@ function M.to_tmux()
   end
 end
 
+---Send `text` to a single herdr pane `pane_id`, optionally pressing Enter.
+---Args are passed as a list so no shell quoting is needed.
+---@param pane_id string
+---@param text string
+---@param send_enter boolean
+local function herdr_send(pane_id, text, send_enter)
+  vim.fn.system({ "herdr", "pane", "send-text", pane_id, text })
+  if send_enter then
+    vim.fn.system({ "herdr", "pane", "send-keys", pane_id, "Enter" })
+  end
+end
+
+---Resolve the pane id neighboring `$HERDR_PANE_ID` in `direction`. Returns nil
+---when there is no such neighbor (or herdr errors). Exposed for testing via the
+---parser below; this one shells out.
+---@param direction string one of "left"|"right"|"up"|"down"
+---@return string|nil
+local function herdr_neighbor(direction)
+  local out = vim.fn.system({ "herdr", "pane", "neighbor", "--direction", direction, "--current" })
+  if vim.v.shell_error ~= 0 then
+    return nil
+  end
+  return M._herdr_neighbor_of(out)
+end
+
+---Pull neighbor_pane_id out of `herdr pane neighbor` JSON. Exposed for testing.
+---@param json string
+---@return string|nil
+function M._herdr_neighbor_of(json)
+  local ok, data = pcall(vim.json.decode, json)
+  if not ok or type(data) ~= "table" then
+    return nil
+  end
+  local neighbor = data.result and data.result.neighbor
+  return neighbor and neighbor.neighbor_pane_id or nil
+end
+
+local DIRECTION_LABELS = {
+  right = "\u{2192} pane on the right",
+  left = "\u{2190} pane on the left",
+  up = "\u{2191} pane above",
+  down = "\u{2193} pane below",
+}
+
+---Resolve a picker choice into a herdr pane id. Exposed for testing.
+---A direction word or its arrow label (e.g. "right" / "→ pane on the right")
+---resolves to that neighbor of the calling pane. "current"/"current pane" maps
+---to $HERDR_PANE_ID. Otherwise the leading token is the opaque pane id
+---(e.g. "w1:p1" from a "w1:p1  claude" line).
+---@param choice string
+---@return string|nil
+function M._herdr_target_of(choice)
+  if choice == "current" or choice:match("^current pane") then
+    return vim.env.HERDR_PANE_ID
+  end
+  for direction, label in pairs(DIRECTION_LABELS) do
+    if choice == direction or choice == label then
+      return herdr_neighbor(direction)
+    end
+  end
+  return choice:match("^(%S+)")
+end
+
+---Live herdr panes as picker lines "<pane_id>  <agent/label/short-cwd>". Exposed
+---for testing. `exclude` (optional) drops that pane id (the caller). cwd is
+---shortened to its last path segment to keep the list readable.
+---@param json string output of `herdr pane list`
+---@param exclude? string pane id to skip
+---@return string[]
+function M._herdr_pane_items(json, exclude)
+  local ok, data = pcall(vim.json.decode, json)
+  if not ok or type(data) ~= "table" then
+    return {}
+  end
+  local panes = data.result and data.result.panes
+  if type(panes) ~= "table" then
+    return {}
+  end
+  local items = {}
+  for _, pane in ipairs(panes) do
+    if type(pane) == "table" and pane.pane_id and pane.pane_id ~= exclude then
+      -- Prefer a running agent, then a user label; fall back to the cwd's last
+      -- segment (full paths made the list a wall of text).
+      local desc = pane.agent or pane.label
+      if not desc and pane.cwd then
+        desc = pane.cwd:match("([^/]+)/?$") or pane.cwd
+      end
+      table.insert(items, pane.pane_id .. (desc and ("  " .. desc) or ""))
+    end
+  end
+  return items
+end
+
+function M.to_herdr()
+  if vim.fn.executable("herdr") ~= 1 then
+    notify("herdr not found on PATH", vim.log.levels.ERROR)
+    return
+  end
+  if vim.env.HERDR_ENV ~= "1" then
+    notify("Not inside a herdr session", vim.log.levels.ERROR)
+    return
+  end
+
+  local count = #M.exported_comments()
+  if count == 0 then
+    notify("No comments to send", vim.log.levels.WARN)
+    return
+  end
+
+  local markdown = M.generate_markdown()
+  local cfg = config.get().herdr
+  local send_enter = cfg.send_enter == true
+
+  -- If auto_select_panes is set, send directly without prompting.
+  if cfg.auto_select_panes and #cfg.auto_select_panes > 0 then
+    for _, pane in ipairs(cfg.auto_select_panes) do
+      local target = M._herdr_target_of(pane)
+      if target then
+        herdr_send(target, markdown, send_enter)
+      end
+    end
+    notify(string.format("Sent %d comment(s) to herdr", count), vim.log.levels.INFO)
+    return
+  end
+
+  -- Build the pane list: configured convenience targets first (a direction like
+  -- "right" is your editor-left/agent-right default, shown as an arrow label;
+  -- "current" is the calling pane), then the live panes in the *current
+  -- workspace* only. Scoping mirrors tmux list-panes -s (an unscoped list spans
+  -- every workspace and is unusable).
+  local items = {}
+  for _, pane in ipairs(cfg.panes or {}) do
+    if DIRECTION_LABELS[pane] then
+      table.insert(items, DIRECTION_LABELS[pane])
+    elseif pane == "current" then
+      table.insert(items, "current pane ($HERDR_PANE_ID)")
+    else
+      table.insert(items, pane)
+    end
+  end
+  local list_cmd = { "herdr", "pane", "list" }
+  if vim.env.HERDR_WORKSPACE_ID then
+    vim.list_extend(list_cmd, { "--workspace", vim.env.HERDR_WORKSPACE_ID })
+  end
+  local list = vim.fn.system(list_cmd)
+  if vim.v.shell_error == 0 then
+    vim.list_extend(items, M._herdr_pane_items(list, vim.env.HERDR_PANE_ID))
+  end
+
+  local function send_to(selected)
+    if not selected or #selected == 0 then
+      return
+    end
+    for _, choice in ipairs(selected) do
+      local target = M._herdr_target_of(choice)
+      if target then
+        herdr_send(target, markdown, send_enter)
+      end
+    end
+    notify(string.format("Sent %d comment(s) to herdr", count), vim.log.levels.INFO)
+  end
+
+  -- fzf-lua multi-select if available (same pattern as to_tmux), else vim.ui.select.
+  local fzf_ok, fzf = pcall(require, "fzf-lua")
+  if fzf_ok then
+    fzf.fzf_exec(items, {
+      prompt = "Send to herdr pane(s) (Tab to select, Enter to confirm)> ",
+      actions = {
+        ["default"] = function(selected) send_to(selected) end,
+      },
+      fzf_opts = { ["--multi"] = "" },
+    })
+  else
+    vim.ui.select(items, { prompt = "Send to herdr pane:" }, function(choice)
+      if choice then send_to({ choice }) end
+    end)
+  end
+end
+
 return M
