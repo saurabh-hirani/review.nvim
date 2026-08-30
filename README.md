@@ -81,7 +81,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim). Because nothing ships by 
 :Review commits SHA  " Review a single commit (diffs SHA^ against SHA)
 :Review commits REV1 REV2  " Review a specific revision range (skips picker)
 :Review close        " Close and export comments to clipboard
-:Review export       " Export comments to clipboard
+:Review export       " Export comments to clipboard (S/T/H in the preview send to sidekick/tmux/herdr)
 :Review preview      " Preview exported markdown in a split
 :Review sidekick     " Send comments to sidekick.nvim
 :Review tmux         " Send comments to a tmux pane
@@ -355,7 +355,7 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
 - **Restore edit on close** ([#5](https://github.com/saurabh-hirani/review.nvim/pull/5)) — `codediff.restore_edit_on_close` controls whether buffers stay readonly after closing (default: readonly, to prevent line drift).
 - **Multi-select delete** ([#6](https://github.com/saurabh-hirani/review.nvim/pull/6)) — `D` in readonly mode or `:Review delete` opens an fzf multi-select picker to bulk-delete comments.
 - **Keep marks visible on close** ([#8](https://github.com/saurabh-hirani/review.nvim/pull/8)) — marks stay on buffers after closing so comments remain visible; `:Review marks` hides them.
-- **Annotate normal buffers** ([#9](https://github.com/saurabh-hirani/review.nvim/pull/9)) — annotate any buffer without opening the diff view; the export preview is editable (`:w` re-copies to clipboard).
+- **Annotate normal buffers** ([#9](https://github.com/saurabh-hirani/review.nvim/pull/9)) — annotate any buffer without opening the diff view; the export preview is editable (`:w` re-copies to clipboard) and its `S`/`T`/`H` keys send to sidekick/tmux/herdr, just like the diff view.
 - **Scope review to its own sessions** ([#10](https://github.com/saurabh-hirani/review.nvim/pull/10)) — review only attaches to codediff sessions it opened via `:Review`; a bare `:CodeDiff` stays plain codediff.
 - **Bring your own comment types** ([#12](https://github.com/saurabh-hirani/review.nvim/pull/12)) — the headline overhaul of this fork. Upstream's built-in types, their keymaps, and their colours are all removed. The plugin now ships nothing by default and hands every construct to you:
   - **No default types** — you define `comment_types` entirely; the built-ins no longer leak in via config merge, and you supply your own highlight groups for each type's colour.
