@@ -14,6 +14,7 @@ local subcommands = {
   herdr = { fn = function() require("review.export").to_herdr() end, desc = "Send comments to a herdr pane" },
   clear = { fn = function() require("review").clear() end, desc = "Clear all comments" },
   list = { fn = function() require("review.comments").list() end, desc = "List all comments" },
+  quickfix = { fn = function() require("review.comments").quickfix() end, desc = "Send comments to the quickfix list" },
   delete = { fn = function() require("review.comments").delete_multi() end, desc = "Select and delete comments" },
   toggle = { fn = function() require("review").toggle_readonly() end, desc = "Toggle readonly/edit mode" },
   marks = { fn = function() require("review").toggle_marks() end, desc = "Toggle comment marks visibility" },

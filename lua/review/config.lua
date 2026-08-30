@@ -9,6 +9,7 @@ local M = {}
 ---@field storage ReviewStorageConfig
 ---@field tmux ReviewTmuxConfig
 ---@field herdr ReviewHerdrConfig
+---@field quickfix ReviewQuickfixConfig
 
 ---@class CommentType
 ---@field key string
@@ -72,6 +73,9 @@ local M = {}
 ---@field panes string[] convenience targets offered in the picker; a direction ("right"/"left"/"up"/"down") = that neighbor of the calling pane, "current" = calling pane ($HERDR_PANE_ID), or an explicit pane id
 ---@field auto_select_panes string[] if non-empty, send to these targets directly without prompting (same vocabulary as panes)
 ---@field focus boolean focus the target pane after sending; directional targets only (default true)
+
+---@class ReviewQuickfixConfig
+---@field path_style "relative"|"absolute" path shown in the :Review quickfix list (default "relative")
 
 ---@type ReviewConfig
 M.defaults = {
@@ -163,6 +167,12 @@ M.defaults = {
     -- true: focus the target pane after sending. Focus-follow only applies to
     -- directional targets (herdr's pane focus is direction-based).
     focus = true,
+  },
+  quickfix = {
+    -- Path shown in the :Review quickfix list. "relative" (default) shows the
+    -- stored path relative to the git root; "absolute" shows the full path.
+    -- Jumping works either way; this only affects what the quickfix line shows.
+    path_style = "relative",
   },
 }
 

@@ -13,6 +13,11 @@ describe("review.config", function()
       assert.same({}, cfg.popup.type_order)
       assert.is_nil(cfg.popup.default_type)
     end)
+
+    it("defaults quickfix.path_style to relative", function()
+      config.setup({})
+      assert.equal("relative", config.get().quickfix.path_style)
+    end)
   end)
 
   describe("comment_types override", function()
