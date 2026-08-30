@@ -66,6 +66,24 @@ function M.setup(opts)
     end,
   })
 
+  -- Keep marks consistent across every file while they are toggled visible:
+  -- render them for any normal buffer we enter/read. Codediff buffers have
+  -- their own mark handling (via hooks), so skip those here. When marks are
+  -- toggled hidden, this renders nothing, so hide/show behaves identically in
+  -- every file — current, other open, and newly opened.
+  vim.api.nvim_create_autocmd({ "BufEnter", "BufReadPost" }, {
+    group = augroup,
+    callback = function(args)
+      if not marks_visible then
+        return
+      end
+      if hooks.get_session() then
+        return -- inside a codediff session; hooks handle its buffers
+      end
+      M._render_marks_for_buffer(args.buf)
+    end,
+  })
+
   initialized = true
 end
 
@@ -212,6 +230,25 @@ end
 
 local marks_visible = false
 
+--- Render review marks for a single normal (non-codediff) buffer, resolving its
+--- path relative to the git root. No-op for unnamed/codediff buffers.
+---@param bufnr number
+function M._render_marks_for_buffer(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+  local bufname = vim.api.nvim_buf_get_name(bufnr)
+  if not bufname or bufname == "" or bufname:match("^codediff://") then
+    return
+  end
+  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
+  if vim.v.shell_error ~= 0 or not git_root or git_root == "" then
+    return
+  end
+  local rel = bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
+  require("review.marks").render_for_buffer(bufnr, "new", rel)
+end
+
 function M.toggle_marks()
   local marks = require("review.marks")
   if marks_visible then
@@ -219,24 +256,22 @@ function M.toggle_marks()
     marks_visible = false
     vim.notify("Review marks hidden", vim.log.levels.INFO, { title = "review.nvim" })
   else
+    marks_visible = true
     -- If inside a codediff session, use refresh (aware of sides)
     local session = hooks.get_session()
     if session then
       marks.refresh()
     else
-      -- Outside session: load store and render on current buffer
+      -- Outside a session: render every loaded normal buffer, not just the
+      -- current one, so all open files show marks. The BufEnter autocmd keeps
+      -- files entered later consistent while marks stay visible.
       store.load()
-      local bufnr = vim.api.nvim_get_current_buf()
-      local bufname = vim.api.nvim_buf_get_name(bufnr)
-      if bufname and bufname ~= "" then
-        local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
-        if vim.v.shell_error == 0 and git_root then
-          local rel = bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
-          marks.render_for_buffer(bufnr, "new", rel)
+      for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(bufnr) then
+          M._render_marks_for_buffer(bufnr)
         end
       end
     end
-    marks_visible = true
     vim.notify("Review marks visible", vim.log.levels.INFO, { title = "review.nvim" })
   end
 end
@@ -292,6 +327,9 @@ function M.annotate()
         local marks = require("review.marks")
         marks.render_for_buffer(vim.api.nvim_get_current_buf(), "new", file)
       end)
+      -- Annotating shows a mark, so reflect that in the toggle state; otherwise
+      -- the first :Review marks would "show" (no-op) instead of hiding.
+      marks_visible = true
       vim.notify(string.format("Added %s comment", comment_type), vim.log.levels.INFO, { title = "review.nvim" })
     end
   end)
@@ -319,6 +357,9 @@ function M.annotate_range()
         local marks = require("review.marks")
         marks.render_for_buffer(vim.api.nvim_get_current_buf(), "new", file)
       end)
+      -- Annotating shows a mark, so reflect that in the toggle state; otherwise
+      -- the first :Review marks would "show" (no-op) instead of hiding.
+      marks_visible = true
       vim.notify(string.format("Added %s comment", comment_type), vim.log.levels.INFO, { title = "review.nvim" })
     end
   end)
