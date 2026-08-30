@@ -111,7 +111,7 @@ When you're done, press `q` to close. This copies all comments to the clipboard 
 
 Lines prefixed with `~` refer to the old (left) side of the diff. Ranges use `start-end`. Types you keep for yourself (📝 note, in the [Configuration](#configuration) example) stay in the diff and never show up here — see [Filtering the export](#filtering-the-export).
 
-Comments persist per branch, in `~/.local/share/nvim/review/`, so you can close Neovim and resume later. A saved review is deleted once its file has gone 7 days without a change; adding or editing any comment resets that clock.
+Comments persist per branch, in `~/.local/share/nvim/review/`, so you can close Neovim and resume later. Saved reviews are kept forever by default; set `storage.expiry_days` to a positive number to have a review deleted once its file has gone that long without a change (adding or editing any comment resets the clock).
 
 ## Configuration
 
@@ -250,6 +250,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `export.types` | `nil` (all types) | List of type keys to export; other types stay in the diff but are left out of the export |
 | `popup.type_order` | `{}` | Active types, in order |
 | `popup.default_type` | `nil` | Type selected first in the picker |
+| `storage.expiry_days` | `0` (never) | Days a saved review survives without a change; `0` or `false` keeps reviews forever |
 
 ### Keybindings in the diff view
 
@@ -320,6 +321,7 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
   - **Derived per-type keymaps** — each type's add-keymap is built from `add_type_prefix .. type.key` (e.g. prefix `<localleader>c` + key `s` = `<localleader>cs`). Define a type, get its keymap for free. No hardcoded `add_note`/`add_praise`.
   - **Configurable export preamble** — `export.header` and `export.side_note` let you write the exact instructions your agent sees. Set either to `false` to omit it.
 - **Filter which types are exported** ([#13](https://github.com/saurabh-hirani/review.nvim/pull/13)) — `export.types` picks the type keys that reach the clipboard. Types left out stay fully visible in the diff (icon, box, tint, navigation) but never reach the agent, so a "note to self" type can live alongside types meant as instructions.
+- **Configurable review expiry** ([#14](https://github.com/saurabh-hirani/review.nvim/pull/14)) — `storage.expiry_days` replaces upstream's hardcoded 7-day cleanup, and the default flips to keeping reviews forever. Set a positive number of days to opt into cleanup.
 
 ## License
 

@@ -6,6 +6,7 @@ local M = {}
 ---@field codediff ReviewCodediffConfig
 ---@field export ReviewExportConfig
 ---@field popup ReviewPopupConfig
+---@field storage ReviewStorageConfig
 
 ---@class CommentType
 ---@field key string
@@ -53,6 +54,9 @@ local M = {}
 ---@class ReviewPopupConfig
 ---@field type_order string[]
 ---@field default_type? string
+
+---@class ReviewStorageConfig
+---@field expiry_days number|false days a saved review survives without a change; 0 or false keeps it forever (default)
 
 ---@type ReviewConfig
 M.defaults = {
@@ -109,6 +113,12 @@ M.defaults = {
   popup = {
     type_order = {},
     default_type = nil,
+  },
+  storage = {
+    -- 0 (or false) keeps saved reviews forever. Set a positive number of days
+    -- to have a review deleted once its file has gone that long without a
+    -- change; adding or editing a comment resets the clock.
+    expiry_days = 0,
   },
 }
 
