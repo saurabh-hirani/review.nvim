@@ -33,9 +33,35 @@ local function resolve_path(file)
   return file
 end
 
+---Type keys allowed in the export, or nil when every type is exported.
+---@return table<string, true>|nil
+local function allowed_types()
+  local types = config.get().export.types
+  if not types then
+    return nil
+  end
+  local allowed = {}
+  for _, type_key in ipairs(types) do
+    allowed[type_key] = true
+  end
+  return allowed
+end
+
+---Comments included in the export, filtered by export.types.
+---@return Comment[]
+function M.exported_comments()
+  local allowed = allowed_types()
+  if not allowed then
+    return store.get_all()
+  end
+  return vim.tbl_filter(function(comment)
+    return allowed[comment.type] == true
+  end, store.get_all())
+end
+
 ---@return string
 function M.generate_markdown()
-  local all_comments = store.get_all()
+  local all_comments = M.exported_comments()
 
   if #all_comments == 0 then
     return "No comments yet."
@@ -43,6 +69,7 @@ function M.generate_markdown()
 
   local lines = {}
   local cfg = config.get()
+  local allowed = allowed_types()
 
   -- Header (configurable; false/empty to omit)
   if cfg.export.header and cfg.export.header ~= "" then
@@ -50,12 +77,14 @@ function M.generate_markdown()
     table.insert(lines, "")
   end
 
-  -- Build comment types description from configured types in popup order
+  -- Build comment types description from exported types in popup order
   local type_descriptions = {}
   for _, type_key in ipairs(cfg.popup.type_order) do
-    local type_info = cfg.comment_types[type_key]
-    local name = type_info and type_info.name or type_key
-    table.insert(type_descriptions, string.upper(name))
+    if not allowed or allowed[type_key] then
+      local type_info = cfg.comment_types[type_key]
+      local name = type_info and type_info.name or type_key
+      table.insert(type_descriptions, string.upper(name))
+    end
   end
   table.insert(lines, "Comment types: " .. table.concat(type_descriptions, ", "))
   if cfg.export.side_note and cfg.export.side_note ~= "" then
@@ -90,7 +119,7 @@ end
 
 function M.to_clipboard()
   local markdown = M.generate_markdown()
-  local count = store.count()
+  local count = #M.exported_comments()
 
   if count == 0 then
     notify("No comments to export", vim.log.levels.WARN)
@@ -160,7 +189,7 @@ function M.to_sidekick()
     return
   end
 
-  local count = store.count()
+  local count = #M.exported_comments()
   if count == 0 then
     notify("No comments to send", vim.log.levels.WARN)
     return

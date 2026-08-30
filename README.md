@@ -20,14 +20,16 @@ If you want a batteries-included tool with sensible defaults, upstream is a fine
 
 ## Concepts
 
-A comment **type** is whatever you say it is: a key in `comment_types` with a `name`, an `icon`, a keymap `key`, and two highlight-group names (`hl` and `line_hl`). When you add a comment of that type, you get **three visual elements** in the diff:
+A comment **type** is whatever you say it is: a key in `comment_types` with a `name`, an `icon`, a keymap `key`, and two highlight-group names (`hl` and `line_hl`). The examples throughout this README use three types — **suggestion** 💡, **question** ❓ and **note** 📝 — but they are examples, not defaults; nothing ships with the plugin.
 
-1. **The gutter icon** — the `icon` string rendered as a sign in the sign column (e.g. `!` or `?`). Coloured by `hl`.
+When you add a comment of a type, you get **three visual elements** in the diff:
+
+1. **The gutter icon** — the `icon` string rendered as a sign in the sign column (e.g. `💡` or `❓`). Coloured by `hl`.
 2. **The comment box** — a bordered virtual-text box below the line showing `[NAME]` and your text. Coloured by `hl`.
 3. **The line highlight** — a background tint across the commented line(s). Coloured by `line_hl`. For a multi-line comment, every line in the range is tinted.
 
 ```
-  8 │!  todos = {}          ← gutter icon (hl colour)
+  8 │💡 todos = {}          ← gutter icon (hl colour)
     │  ┌[SUGGESTION]────┐   ← comment box   (hl colour)
     │  │ prefer a set    │
     │  └─────────────────┘
@@ -35,6 +37,8 @@ A comment **type** is whatever you say it is: a key in `comment_types` with a `n
 ```
 
 So each type maps to: `icon` → the sign, `hl` → the sign + box colour, `line_hl` → the line background. These are the knobs you set per type. **Nothing is defined by default.** You create the highlight groups yourself (see [Configuration](#configuration)) and reference them by name, or point `hl`/`line_hl` at groups your colourscheme already provides (e.g. `DiagnosticHint`).
+
+Types also differ in *who* they are for, which is what makes [export filtering](#filtering-the-export) useful: 💡 suggestion and ❓ question are instructions for the agent, while 📝 note is a reminder to yourself that never needs to leave the editor.
 
 ## Requirements
 
@@ -105,11 +109,13 @@ When you're done, press `q` to close. This copies all comments to the clipboard 
 2. **[QUESTION]** `src/utils.py:~10` - why was this removed?
 ```
 
-Lines prefixed with `~` refer to the old (left) side of the diff. Ranges use `start-end`. Comments persist per branch (in `~/.local/share/nvim/review/`), so you can close Neovim and resume later. Sessions auto-expire after 7 days.
+Lines prefixed with `~` refer to the old (left) side of the diff. Ranges use `start-end`. Types you keep for yourself (📝 note, in the [Configuration](#configuration) example) stay in the diff and never show up here — see [Filtering the export](#filtering-the-export).
+
+Comments persist per branch, in `~/.local/share/nvim/review/`, so you can close Neovim and resume later. A saved review is deleted once its file has gone 7 days without a change; adding or editing any comment resets that clock.
 
 ## Configuration
 
-This is a complete, ready-to-copy setup for two types: **suggestion** (green) and **question** (magenta). It defines the types, the highlight groups the types reference, and a custom export preamble. Adapt the names, icons, keys, and colours to your own review vocabulary.
+This is a complete, ready-to-copy setup for three types: 💡 **suggestion** (green, agent fixes it), ❓ **question** (magenta, agent explains it) and 📝 **note** (blue, reminder to yourself). It defines the types, the highlight groups they reference, a custom export preamble, and an export filter that keeps notes out of the clipboard. Adapt the names, icons, keys, and colours to your own review vocabulary.
 
 ```lua
 {
@@ -127,18 +133,21 @@ This is a complete, ready-to-copy setup for two types: **suggestion** (green) an
     -- Your review vocabulary. Each type is: name, icon (gutter sign),
     -- key (its add-keymap suffix), hl (sign + box colour), line_hl (line tint).
     comment_types = {
-      suggestion = { key = "s", name = "Suggestion", icon = "!", hl = "ReviewSuggestion", line_hl = "ReviewSuggestionLine" },
-      question   = { key = "q", name = "Question",   icon = "?", hl = "ReviewQuestion",   line_hl = "ReviewQuestionLine" },
+      suggestion = { key = "s", name = "Suggestion", icon = "💡", hl = "ReviewSuggestion", line_hl = "ReviewSuggestionLine" }, -- agent: fix this
+      question   = { key = "q", name = "Question",   icon = "❓", hl = "ReviewQuestion",   line_hl = "ReviewQuestionLine" },   -- agent: explain this
+      note       = { key = "n", name = "Note",       icon = "📝", hl = "ReviewNote",       line_hl = "ReviewNoteLine" },       -- you: remember this
     },
     popup = {
       -- which types appear in the picker (and in what order), and the default
-      type_order = { "suggestion", "question" },
+      type_order = { "suggestion", "question", "note" },
       default_type = "suggestion",
     },
     export = {
       path_style = "absolute", -- or "relative"
       header = "Please review my code-review comments below and address each one.",
       side_note = "Paths with ~ before the line number point to the old (left) side of the diff.",
+      -- notes are for you, not the agent: they stay in the diff, out of the export
+      types = { "suggestion", "question" },
     },
   },
   config = function(_, opts)
@@ -150,8 +159,10 @@ This is a complete, ready-to-copy setup for two types: **suggestion** (green) an
       local set_hl = vim.api.nvim_set_hl
       set_hl(0, "ReviewSuggestion",     { fg = "#a6e3a1", bold = true }) -- green sign + box
       set_hl(0, "ReviewQuestion",       { fg = "#f5c2e7", bold = true }) -- magenta sign + box
+      set_hl(0, "ReviewNote",           { fg = "#89b4fa", bold = true }) -- blue sign + box
       set_hl(0, "ReviewSuggestionLine", { bg = "#1e3320" })              -- green line tint
       set_hl(0, "ReviewQuestionLine",   { bg = "#3a1f33" })              -- magenta line tint
+      set_hl(0, "ReviewNoteLine",       { bg = "#1e2a3f" })              -- blue line tint
     end
     vim.api.nvim_create_autocmd("ColorScheme", {
       group = vim.api.nvim_create_augroup("ReviewHighlights", { clear = true }),
@@ -163,7 +174,9 @@ This is a complete, ready-to-copy setup for two types: **suggestion** (green) an
 }
 ```
 
-With this config, the plugin automatically gives each type an edit-mode add-keymap: `<localleader>cs` (suggestion) and `<localleader>cq` (question), derived from `add_type_prefix` + each type's `key`.
+With this config, the plugin automatically gives each type an edit-mode add-keymap: `<localleader>cs` (suggestion), `<localleader>cq` (question) and `<localleader>cn` (note), derived from `add_type_prefix` + each type's `key`.
+
+Emoji icons need a terminal font with emoji support; if they show up as empty boxes, use plain text like `!`, `?` and `*` instead.
 
 ### Comment types
 
@@ -172,12 +185,26 @@ Each entry in `comment_types` is a table:
 | Field | Purpose |
 |-------|---------|
 | `name` | Label shown in the box (`[NAME]`) and the export tag |
-| `icon` | Gutter sign glyph. Any 1–2 cell string (`!`, `?`, `S!`). Plain text; no icon fonts or images needed |
+| `icon` | Gutter sign glyph. Any 1–2 cell string — emoji (`💡`, `❓`, `📝`) or plain text (`!`, `?`, `S!`). No icon fonts or images needed |
 | `key` | Single char; combined with `add_type_prefix` to form the add-keymap (key `s` → `<localleader>cs`) |
 | `hl` | Highlight-group name for the sign icon and comment box |
 | `line_hl` | Highlight-group name for the whole-line background tint (omit for no tint) |
 
 `comment_types` **replaces** the defaults wholesale. If you supply it, only your types exist (built-ins do not merge in). `popup.type_order` decides which of them are active and in what order; a type absent from `type_order` gets no menu entry, no keymap, and no export mention.
+
+### Filtering the export
+
+Not every type is meant for the agent. Say you define three: **suggestion** is something you want the agent to fix, **question** is something you want it to explain, and **note** is a reminder to yourself while reading the diff. The first two are instructions; the third is just for you, so there is no point shipping it to the agent.
+
+`export.types` lists the type keys that reach the clipboard. Everything else stays visible in the diff — icon, box, line tint, `]n` navigation — but is left out of the export (`C`, `q`, `:Review export`, `:Review preview`, and sidekick all honour it). Omit the option to export every type. With the three types from [Configuration](#configuration), that is a one-line filter:
+
+```lua
+export = {
+  types = { "suggestion", "question" }, -- 📝 notes stay local, never sent to the agent
+}
+```
+
+The exported `Comment types:` line and the comment numbering both follow the filter, so the agent never sees a type you excluded.
 
 ### Keymap options
 
@@ -220,6 +247,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `export.path_style` | `"relative"` | `"relative"` or `"absolute"` file paths in exported comments |
 | `export.header` | intro sentence | First line(s) of the export; `false` to omit |
 | `export.side_note` | `~` explanation | Note about the `~` (old-side) prefix; `false` to omit |
+| `export.types` | `nil` (all types) | List of type keys to export; other types stay in the diff but are left out of the export |
 | `popup.type_order` | `{}` | Active types, in order |
 | `popup.default_type` | `nil` | Type selected first in the picker |
 
@@ -253,7 +281,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 
 ## Export Format
 
-Comments are exported as markdown optimized for AI consumption. The `Comment types:` line is generated from `popup.type_order` and your type `name`s; the intro and `~` note are your configurable `export.header` and `export.side_note`:
+Comments are exported as markdown optimized for AI consumption. The `Comment types:` line is generated from `popup.type_order`, your type `name`s and the `export.types` filter; the intro and `~` note are your configurable `export.header` and `export.side_note`. This is what the [Configuration](#configuration) example produces — 💡 suggestions and ❓ questions are here, 📝 notes are not:
 
 ```markdown
 Please review my code-review comments below and address each one.
@@ -291,6 +319,7 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
   - **No default types** — you define `comment_types` entirely; the built-ins no longer leak in via config merge, and you supply your own highlight groups for each type's colour.
   - **Derived per-type keymaps** — each type's add-keymap is built from `add_type_prefix .. type.key` (e.g. prefix `<localleader>c` + key `s` = `<localleader>cs`). Define a type, get its keymap for free. No hardcoded `add_note`/`add_praise`.
   - **Configurable export preamble** — `export.header` and `export.side_note` let you write the exact instructions your agent sees. Set either to `false` to omit it.
+- **Filter which types are exported** ([#13](https://github.com/saurabh-hirani/review.nvim/pull/13)) — `export.types` picks the type keys that reach the clipboard. Types left out stay fully visible in the diff (icon, box, tint, navigation) but never reach the agent, so a "note to self" type can live alongside types meant as instructions.
 
 ## License
 
