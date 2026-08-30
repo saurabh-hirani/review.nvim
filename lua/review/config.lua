@@ -7,6 +7,7 @@ local M = {}
 ---@field export ReviewExportConfig
 ---@field popup ReviewPopupConfig
 ---@field storage ReviewStorageConfig
+---@field tmux ReviewTmuxConfig
 
 ---@class CommentType
 ---@field key string
@@ -25,6 +26,7 @@ local M = {}
 ---@field list_comments string|false
 ---@field export_clipboard string|false
 ---@field send_sidekick string|false
+---@field send_tmux string|false
 ---@field clear_comments string|false
 ---@field close string|false
 ---@field toggle_readonly string|false
@@ -58,6 +60,11 @@ local M = {}
 ---@class ReviewStorageConfig
 ---@field expiry_days number|false days a saved review survives without a change; 0 or false keeps it forever (default)
 
+---@class ReviewTmuxConfig
+---@field send_enter boolean press Enter after sending (submit immediately); default false
+---@field panes string[] pane targets always offered in the picker (besides live panes); "+" means next pane
+---@field auto_select_panes string[] if non-empty, send to these panes directly without prompting
+
 ---@type ReviewConfig
 M.defaults = {
   -- No comment types are shipped by default: the user defines them entirely.
@@ -82,6 +89,7 @@ M.defaults = {
     list_comments = "c",
     export_clipboard = "C",
     send_sidekick = "S",
+    send_tmux = "T",
     clear_comments = "<C-r>",
     close = "q",
     toggle_readonly = "R",
@@ -119,6 +127,16 @@ M.defaults = {
     -- to have a review deleted once its file has gone that long without a
     -- change; adding or editing a comment resets the clock.
     expiry_days = 0,
+  },
+  tmux = {
+    -- false: leave the text in the pane without submitting. true: press Enter
+    -- after sending, submitting it immediately (handy for agent CLIs).
+    send_enter = false,
+    -- Pane targets always offered in the picker on top of the live panes.
+    -- "+" is the next pane; you can also list explicit targets like "1.2".
+    panes = { "+" },
+    -- If non-empty, send to these panes directly and skip the picker.
+    auto_select_panes = {},
   },
 }
 

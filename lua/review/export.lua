@@ -200,4 +200,99 @@ function M.to_sidekick()
   notify(string.format("Sent %d comment(s) to sidekick", count), vim.log.levels.INFO)
 end
 
+---Send `text` to a single tmux pane `target` via send-keys, optionally pressing Enter.
+---@param target string
+---@param text string
+---@param send_enter boolean
+local function tmux_send(target, text, send_enter)
+  -- Escape single quotes for the single-quoted shell argument.
+  local escaped = text:gsub("'", "'\\''")
+  vim.fn.system(string.format("tmux send-keys -t '%s' '%s'", target, escaped))
+  if send_enter then
+    vim.fn.system(string.format("tmux send-keys -t '%s' Enter", target))
+  end
+end
+
+---Normalise a picker choice into a tmux pane target. Exposed for testing.
+---@param choice string
+---@return string
+function M._tmux_target_of(choice)
+  if choice == "+ (next pane)" or choice == "+" then
+    return "+"
+  end
+  -- Lines from `tmux list-panes` look like "1.0: nvim [win]"; take the "1.0".
+  local index = choice:match("^(%d+%.%d+):")
+  return index or choice
+end
+
+function M.to_tmux()
+  if vim.fn.executable("tmux") ~= 1 then
+    notify("tmux not found on PATH", vim.log.levels.ERROR)
+    return
+  end
+  if vim.env.TMUX == nil then
+    notify("Not inside a tmux session", vim.log.levels.ERROR)
+    return
+  end
+
+  local count = #M.exported_comments()
+  if count == 0 then
+    notify("No comments to send", vim.log.levels.WARN)
+    return
+  end
+
+  local markdown = M.generate_markdown()
+  local cfg = config.get().tmux
+  local send_enter = cfg.send_enter == true
+
+  -- If auto_select_panes is set, send directly without prompting.
+  if cfg.auto_select_panes and #cfg.auto_select_panes > 0 then
+    for _, target in ipairs(cfg.auto_select_panes) do
+      tmux_send(target, markdown, send_enter)
+    end
+    notify(string.format("Sent %d comment(s) to tmux", count), vim.log.levels.INFO)
+    return
+  end
+
+  -- Build the pane list: "+ (next pane)", configured panes, then live panes.
+  local items = { "+ (next pane)" }
+  for _, pane in ipairs(cfg.panes or {}) do
+    if pane ~= "+" then
+      table.insert(items, pane)
+    end
+  end
+  local live = vim.fn.systemlist(
+    'tmux list-panes -s -F "#{window_index}.#{pane_index}: #{pane_current_command} [#{window_name}]"'
+  )
+  if vim.v.shell_error == 0 then
+    vim.list_extend(items, live)
+  end
+
+  local function send_to(selected)
+    if not selected or #selected == 0 then
+      return
+    end
+    for _, choice in ipairs(selected) do
+      tmux_send(M._tmux_target_of(choice), markdown, send_enter)
+    end
+    notify(string.format("Sent %d comment(s) to tmux", count), vim.log.levels.INFO)
+  end
+
+  -- fzf-lua multi-select if available (same pattern as delete_multi), else vim.ui.select.
+  local fzf_ok, fzf = pcall(require, "fzf-lua")
+  if fzf_ok then
+    fzf.fzf_exec(items, {
+      prompt = "Send to tmux pane(s) (Tab to select, Enter to confirm)> ",
+      actions = {
+        ["default"] = function(selected) send_to(selected) end,
+      },
+      fzf_opts = { ["--multi"] = "" },
+    })
+  else
+    vim.ui.select(items, { prompt = "Send to tmux pane:" }, function(choice)
+      if choice then send_to({ choice }) end
+    end)
+  end
+end
+
 return M
