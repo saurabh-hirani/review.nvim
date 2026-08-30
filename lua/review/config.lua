@@ -48,6 +48,7 @@ local M = {}
 ---@field path_style "relative"|"absolute"
 ---@field header string|false intro line(s) before the comment list; false to omit
 ---@field side_note string|false explanation of the ~ (old-side) prefix; false to omit
+---@field types? string[] type keys to export; nil exports every type
 
 ---@class ReviewPopupConfig
 ---@field type_order string[]
@@ -101,6 +102,9 @@ M.defaults = {
     path_style = "relative",
     header = "I reviewed your code and have the following comments. Please address them.",
     side_note = "Lines prefixed with ~ refer to the old (left) side of the diff.",
+    -- nil = export every type. Set to a list of type keys to export only those
+    -- (e.g. { "suggestion", "question" } to keep notes out of the export).
+    types = nil,
   },
   popup = {
     type_order = {},

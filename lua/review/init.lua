@@ -180,8 +180,8 @@ function M.open_commits(rev1, rev2)
 end
 
 function M.close()
-  -- Export comments to clipboard before closing
-  local count = store.count()
+  -- Export comments to clipboard before closing (filtered by export.types)
+  local count = #export.exported_comments()
   if count > 0 then
     local markdown = export.generate_markdown()
     vim.fn.setreg("+", markdown)

@@ -100,4 +100,58 @@ describe("review.export", function()
       assert.matches("Comment types: SUGGESTION, QUESTION", md)
     end)
   end)
+
+  describe("export.types filter", function()
+    after_each(function()
+      config.setup({})
+    end)
+
+    local function setup_types(export_types)
+      config.setup({
+        comment_types = {
+          suggestion = { key = "s", name = "Suggestion", icon = "!", hl = "H", line_hl = "HL" },
+          note = { key = "n", name = "Note", icon = "*", hl = "H", line_hl = "HL" },
+        },
+        popup = { type_order = { "suggestion", "note" }, default_type = "suggestion" },
+        export = { types = export_types },
+      })
+    end
+
+    it("exports every type when types is unset", function()
+      setup_types(nil)
+      store.add("a.lua", 1, "suggestion", "keep me")
+      store.add("a.lua", 2, "note", "me too")
+
+      assert.equals(2, #export.exported_comments())
+      local md = export.generate_markdown()
+      assert.matches("keep me", md)
+      assert.matches("me too", md)
+      assert.matches("Comment types: SUGGESTION, NOTE", md)
+    end)
+
+    it("omits comments whose type is not listed", function()
+      setup_types({ "suggestion" })
+      store.add("a.lua", 1, "suggestion", "keep me")
+      store.add("a.lua", 2, "note", "drop me")
+
+      assert.equals(1, #export.exported_comments())
+      local md = export.generate_markdown()
+      assert.matches("keep me", md)
+      assert.not_matches("drop me", md)
+      -- excluded types are dropped from the preamble too
+      assert.matches("Comment types: SUGGESTION", md)
+      assert.not_matches("NOTE", md)
+      -- numbering stays contiguous over the filtered set
+      assert.matches("1%. %*%*%[SUGGESTION%]%*%*", md)
+      assert.not_matches("2%.", md)
+    end)
+
+    it("treats an empty list as nothing to export", function()
+      setup_types({})
+      store.add("a.lua", 1, "suggestion", "keep me")
+
+      assert.equals(0, #export.exported_comments())
+      assert.matches("No comments yet", export.generate_markdown())
+    end)
+  end)
 end)
