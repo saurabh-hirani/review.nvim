@@ -167,6 +167,19 @@ function M.to_clipboard()
     end
   end, { buffer = buf, nowait = true })
 
+  -- Send keymaps: the diff view has S/T/H, but the no-diff export view (from
+  -- :Review export or annotate) had no way to send. Wire the same configured
+  -- keys here so comments can go to sidekick/tmux/herdr straight from the preview.
+  local km = config.get().keymaps
+  local function map_send(lhs, fn, desc)
+    if lhs and lhs ~= false then
+      vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, desc = desc })
+    end
+  end
+  map_send(km.send_sidekick, function() M.to_sidekick() end, "Send to sidekick")
+  map_send(km.send_tmux, function() M.to_tmux() end, "Send to tmux")
+  map_send(km.send_herdr, function() M.to_herdr() end, "Send to herdr")
+
   notify(string.format("Exported %d comment(s) to clipboard", count), vim.log.levels.INFO)
 end
 
