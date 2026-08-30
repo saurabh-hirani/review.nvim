@@ -75,6 +75,11 @@ All commands use the `:Review` prefix.
 :Review tmux                Send comments to a tmux pane (pane picker, or
                             tmux.auto_select_panes to skip it).
 
+                                                               *:Review-herdr*
+:Review herdr               Send comments to a herdr pane (pane picker scoped to
+                            the current workspace, or herdr.auto_select_panes to
+                            skip it).
+
                                                                 *:Review-list*
 :Review list                List all comments with a picker to jump to any.
 
@@ -182,6 +187,7 @@ ACTIONS                                               *review-keymaps-actions*
     `C`           Export to clipboard + preview          |n|
     `S`           Send to sidekick.nvim                  |n|
     `T`           Send to tmux pane                       |n|
+    `H`           Send to herdr pane                      |n|
     `<C-r>`       Clear all comments                     |n|
     `R`           Toggle readonly/edit mode               |n|
     `q`           Export & close review                   |n|
