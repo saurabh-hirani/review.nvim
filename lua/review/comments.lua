@@ -352,4 +352,51 @@ function M.delete_multi()
   end
 end
 
+--- Populate the quickfix list with all comments and open it, so you can
+--- :cnext/:cprev and jump to each. Works in or out of a diff. Comments store
+--- paths relative to the git root, so resolve them to absolute for quickfix.
+function M.quickfix()
+  store.load()
+  local cfg = require("review.config").get()
+  local all_comments = store.get_all()
+
+  if #all_comments == 0 then
+    notify("No comments yet", vim.log.levels.INFO)
+    return
+  end
+
+  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
+  local has_root = vim.v.shell_error == 0 and git_root and git_root ~= ""
+  local absolute = cfg.quickfix and cfg.quickfix.path_style == "absolute"
+
+  local items = {}
+  for _, comment in ipairs(all_comments) do
+    local type_info = cfg.comment_types[comment.type]
+    local name = type_info and type_info.name or comment.type
+    -- Resolve the stored (git-relative) path to absolute for a reliable jump
+    -- target and for absolute display. `module` overrides the displayed path,
+    -- so it carries path_style: "absolute" = full path, "relative" = the stored
+    -- git-relative path. Prefer fnamemodify(:p) when already resolvable, else
+    -- join the git root (don't gate on filereadable — that made absolute mode
+    -- fall back to relative when run from the git root).
+    local abs
+    if has_root then
+      abs = git_root .. "/" .. comment.file
+    else
+      abs = vim.fn.fnamemodify(comment.file, ":p")
+    end
+    local side = (comment.side or "new") == "old" and " (old)" or ""
+    table.insert(items, {
+      filename = abs,
+      module = absolute and abs or comment.file,
+      lnum = comment.line == 0 and 1 or comment.line,
+      col = 1,
+      text = string.format("[%s]%s %s", string.upper(name), side, comment.text),
+    })
+  end
+
+  vim.fn.setqflist({}, " ", { title = "Review comments", items = items })
+  vim.cmd("copen")
+end
+
 return M

@@ -87,6 +87,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim). Because nothing ships by 
 :Review tmux         " Send comments to a tmux pane
 :Review herdr        " Send comments to a herdr pane
 :Review list         " List all comments
+:Review quickfix     " Send comments to the quickfix list (:cnext/:cprev to jump)
 :Review delete       " Multi-select picker to bulk-delete comments
 :Review clear        " Clear all comments
 :Review toggle       " Toggle readonly/edit mode
@@ -284,6 +285,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `codediff.readonly` | `true` | Start reviews readonly (simple keys like `i`/`e`/`d`); set `false` for edit-mode `<localleader>` keymaps |
 | `codediff.restore_edit_on_close` | `false` | Keep buffers readonly after closing (prevents line drift) |
 | `export.path_style` | `"relative"` | `"relative"` or `"absolute"` file paths in exported comments |
+| `quickfix.path_style` | `"relative"` | `"relative"` or `"absolute"` path shown in the `:Review quickfix` list (jumping works either way) |
 | `export.header` | intro sentence | First line(s) of the export; `false` to omit |
 | `export.side_note` | `~` explanation | Note about the `~` (old-side) prefix; `false` to omit |
 | `export.types` | `nil` (all types) | List of type keys to export; other types stay in the diff but are left out of the export |
@@ -365,6 +367,7 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
 - **Configurable review expiry** ([#14](https://github.com/saurabh-hirani/review.nvim/pull/14)) — `storage.expiry_days` replaces upstream's hardcoded 7-day cleanup, and the default flips to keeping reviews forever. Set a positive number of days to opt into cleanup.
 - **Send to tmux** ([#15](https://github.com/saurabh-hirani/review.nvim/pull/15)) — `T` (or `:Review tmux`) sends the exported comments to a tmux pane, the tmux analogue of send-to-sidekick. A pane picker (fzf-lua multi-select, `vim.ui.select` fallback) lists `+ (next pane)` plus every live pane in the current session; `tmux.auto_select_panes` skips it and `tmux.send_enter` submits immediately. Honours `export.types`.
 - **Send to herdr** ([#16](https://github.com/saurabh-hirani/review.nvim/pull/16)) — `H` (or `:Review herdr`) sends the exported comments to a [herdr](https://github.com/herdr) pane, the herdr analogue of `T`. The picker is scoped to the current herdr workspace and its top entry is a directional neighbour (default `right`, for an editor-left / agent-right layout); `herdr.panes` also accepts `current` or an explicit pane id, `herdr.auto_select_panes` skips the picker, and `herdr.send_enter` submits immediately. Honours `export.types`.
+- **Comments to quickfix** ([#21](https://github.com/saurabh-hirani/review.nvim/pull/21)) — `:Review quickfix` sends every comment to the quickfix list and opens it, so you can `:cnext`/`:cprev` and jump to each (works in or out of a diff). `quickfix.path_style` chooses `"relative"` (default) or `"absolute"` paths in the list; jumping works either way. Because the list is a plain buffer, you can also visually select a few rows, yank them, and paste just those into your agent — handy when you want it to act on comments one at a time rather than the whole export at once.
 
 ## License
 

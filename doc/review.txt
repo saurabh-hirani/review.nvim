@@ -83,6 +83,12 @@ All commands use the `:Review` prefix.
                                                                 *:Review-list*
 :Review list                List all comments with a picker to jump to any.
 
+                                                            *:Review-quickfix*
+:Review quickfix            Send all comments to the quickfix list and open it;
+                            use :cnext / :cprev to jump between them. The
+                            displayed path follows quickfix.path_style
+                            ("relative" default, or "absolute").
+
                                                                *:Review-clear*
 :Review clear               Clear all comments.
 
