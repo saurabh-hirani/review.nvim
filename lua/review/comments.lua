@@ -235,30 +235,46 @@ function M.list()
     end
 
     local comment = choice.comment
+    local target_line = comment.line == 0 and 1 or comment.line
 
-    -- Try to navigate to the file in codediff explorer
+    -- In diff mode, load the file's diff via the explorer's own file-select
+    -- callback (the maintained API), then place the cursor. Fall back to :edit
+    -- for the no-diff/annotate workflow, or if the explorer API isn't available.
+    local jumped = false
     local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
     if ok then
       local tabpage = hooks.get_current_tabpage()
-      if tabpage then
-        local explorer = lifecycle.get_explorer(tabpage)
-        if explorer then
-          local explorer_mod = require("codediff.ui.explorer")
-          -- Find and select the file in explorer
-          -- This is a best-effort navigation
-          for i, node in ipairs(explorer.tree:get_nodes()) do
-            if node.path == comment.file then
-              explorer_mod.select_node(explorer, node)
-              break
-            end
+      local explorer = tabpage and lifecycle.get_explorer(tabpage)
+      local refresh_ok, refresh = pcall(require, "codediff.ui.explorer.refresh")
+      if explorer and explorer.on_file_select and refresh_ok then
+        local files = refresh.get_all_files(explorer.tree) or {}
+        for _, file in ipairs(files) do
+          if file.data and file.data.path == comment.file then
+            explorer.on_file_select(file.data)
+            jumped = true
+            break
           end
         end
       end
     end
 
-    -- Jump to line after a short delay (line 1 for file-level comments)
+    -- Non-diff (or explorer miss): open the file itself. Comments store paths
+    -- relative to the git root, so resolve against it before editing.
+    if not jumped then
+      local path = comment.file
+      if vim.fn.filereadable(path) ~= 1 then
+        local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
+        if vim.v.shell_error == 0 and git_root and git_root ~= "" then
+          path = git_root .. "/" .. comment.file
+        end
+      end
+      if vim.fn.filereadable(path) == 1 then
+        vim.cmd("edit " .. vim.fn.fnameescape(path))
+      end
+    end
+
+    -- Place the cursor after the buffer/diff has settled.
     vim.defer_fn(function()
-      local target_line = comment.line == 0 and 1 or comment.line
       pcall(vim.api.nvim_win_set_cursor, 0, { target_line, 0 })
     end, 100)
   end)
