@@ -10,6 +10,7 @@ local subcommands = {
   export = { fn = function() require("review").export() end, desc = "Export comments to clipboard" },
   preview = { fn = function() require("review").preview() end, desc = "Preview exported markdown" },
   sidekick = { fn = function() require("review.export").to_sidekick() end, desc = "Send comments to sidekick.nvim" },
+  tmux = { fn = function() require("review.export").to_tmux() end, desc = "Send comments to a tmux pane" },
   clear = { fn = function() require("review").clear() end, desc = "Clear all comments" },
   list = { fn = function() require("review.comments").list() end, desc = "List all comments" },
   delete = { fn = function() require("review.comments").delete_multi() end, desc = "Select and delete comments" },

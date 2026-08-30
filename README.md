@@ -84,6 +84,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim). Because nothing ships by 
 :Review export       " Export comments to clipboard
 :Review preview      " Preview exported markdown in a split
 :Review sidekick     " Send comments to sidekick.nvim
+:Review tmux         " Send comments to a tmux pane
 :Review list         " List all comments
 :Review delete       " Multi-select picker to bulk-delete comments
 :Review clear        " Clear all comments
@@ -102,7 +103,7 @@ For a multi-line comment, visually select the range first, then press `i`. For a
 
 Use `]n` / `[n` to jump between comments, `e` to edit, `d` to delete, `D` to bulk-delete. Press `c` to list all comments and jump to any of them. Press `?` for a help popup listing your active keymaps.
 
-When you're done, press `q` to close. This copies all comments to the clipboard as structured markdown and shows a preview. Paste it into your agent, or press `S` to send to [sidekick.nvim](https://github.com/folke/sidekick.nvim). The format looks like this:
+When you're done, press `q` to close. This copies all comments to the clipboard as structured markdown and shows a preview. Paste it into your agent, or press `S` to send to [sidekick.nvim](https://github.com/folke/sidekick.nvim), or `T` to send it to a tmux pane. The format looks like this:
 
 ```
 1. **[SUGGESTION]** `src/api.py:23` - prefer a set here
@@ -206,6 +207,22 @@ export = {
 
 The exported `Comment types:` line and the comment numbering both follow the filter, so the agent never sees a type you excluded.
 
+### Send to tmux
+
+`T` (or `:Review tmux`) sends the exported markdown to a tmux pane, the same way `S` sends to sidekick. It only works from inside a tmux session. By default it opens a picker listing `+ (next pane)` plus every live pane; pick one (or several — Tab to multi-select under fzf-lua) and the comments are sent there with `tmux send-keys`. Configure it with the `tmux` block:
+
+```lua
+opts = {
+  tmux = {
+    send_enter = false,        -- true: press Enter after sending (submit immediately)
+    panes = { "+" },           -- targets always offered on top of the live panes ("+" = next pane)
+    auto_select_panes = {},    -- non-empty: send to these panes directly, skipping the picker
+  },
+}
+```
+
+Set `auto_select_panes = { "1.2" }` (window.pane) to always send to a fixed pane, and `send_enter = true` to submit the message immediately in an agent CLI. The picker uses fzf-lua when available and falls back to `vim.ui.select`. Like sidekick, it honours `export.types`.
+
 ### Keymap options
 
 All keymaps can be set to `false` to disable them. Per-type add-keymaps are **not** listed here; they are derived from `add_type_prefix` + each type's `key`.
@@ -225,6 +242,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `list_comments` | `c` | List all comments |
 | `export_clipboard` | `C` | Export to clipboard |
 | `send_sidekick` | `S` | Send comments to sidekick |
+| `send_tmux` | `T` | Send comments to a tmux pane |
 | `clear_comments` | `<C-r>` | Clear all comments |
 | `close` | `q` | Close and export |
 | `toggle_readonly` | `R` | Toggle readonly/edit mode |
@@ -270,6 +288,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `]n` / `[n` | Next / previous comment |
 | `C` | Export to clipboard and preview |
 | `S` | Send comments to sidekick.nvim |
+| `T` | Send comments to a tmux pane |
 | `<C-r>` | Clear all comments |
 | `q` | Close and export |
 | `t` | Toggle side-by-side/inline layout |
