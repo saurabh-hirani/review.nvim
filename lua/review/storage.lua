@@ -97,8 +97,23 @@ function M.save(comments)
   end
 end
 
-local EXPIRY_SECONDS = 7 * 24 * 60 * 60
 local cleanup_done = false
+
+---Is a saved review file past its expiry?
+---@param mtime number file modification time (0 or less when unknown)
+---@param now? number defaults to os.time()
+---@return boolean
+function M.is_expired(mtime, now)
+  local expiry_days = require("review.config").get().storage.expiry_days
+  -- false/0/negative keeps reviews forever
+  if not expiry_days or expiry_days <= 0 then
+    return false
+  end
+  if mtime <= 0 then
+    return false
+  end
+  return ((now or os.time()) - mtime) > (expiry_days * 24 * 60 * 60)
+end
 
 function M.cleanup_expired()
   if cleanup_done then
@@ -110,8 +125,7 @@ function M.cleanup_expired()
     local files = vim.fn.glob(data_dir .. "/*.json", false, true)
     local now = os.time()
     for _, filepath in ipairs(files) do
-      local mtime = vim.fn.getftime(filepath)
-      if mtime > 0 and (now - mtime) > EXPIRY_SECONDS then
+      if M.is_expired(vim.fn.getftime(filepath), now) then
         os.remove(filepath)
       end
     end
