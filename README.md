@@ -236,11 +236,12 @@ opts = {
                                -- ("right"/"left"/"up"/"down") = that neighbour of the calling
                                -- pane, "current" = the calling pane, or an explicit pane id
     auto_select_panes = {},    -- non-empty: send to these targets directly, skipping the picker
+    focus = true,              -- move focus to the target pane after sending (directional targets only)
   },
 }
 ```
 
-`panes = { "right" }` suits editor-left / agent-right; use another direction, `"current"`, or an explicit pane id (e.g. `"w1:p2"`) to match your layout. Set `auto_select_panes = { "right" }` to always fire to the right pane without the picker, and `send_enter = true` to submit immediately in an agent CLI. The picker uses fzf-lua when available and falls back to `vim.ui.select`. Like sidekick, it honours `export.types`.
+`panes = { "right" }` suits editor-left / agent-right; use another direction, `"current"`, or an explicit pane id (e.g. `"w1:p2"`) to match your layout. Set `auto_select_panes = { "right" }` to always fire to the right pane without the picker, and `send_enter = true` to submit immediately in an agent CLI. With `focus = true` (the default) the target pane is focused after sending so you land at the agent; focus-follow works for directional targets only, since herdr's `pane focus` is direction-based. The picker uses fzf-lua when available and falls back to `vim.ui.select`. Like sidekick, it honours `export.types`.
 
 ### Keymap options
 
