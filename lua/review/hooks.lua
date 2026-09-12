@@ -10,14 +10,30 @@ local current_tabpage = nil
 ---@type number|nil Autocmd group for buffer events
 local buf_augroup = nil
 
+---Unwrap a codediff `Path` object ({relative, absolute}) to a plain string.
+---codediff.nvim returns these tables from get_paths(); older versions (and
+---other callers) may still hand us a raw string, so accept both.
+---@param path string|table|nil
+---@return string|nil
+local function path_to_string(path)
+  if type(path) == "table" then
+    path = (path.absolute ~= "" and path.absolute) or path.relative
+  end
+  if not path or path == "" then
+    return nil
+  end
+  return path
+end
+
 ---Set filetype for a buffer based on file path
 ---@param bufnr number
----@param path string|nil
+---@param path string|table|nil
 local function set_buffer_filetype(bufnr, path)
   if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
-  if not path or path == "" then
+  path = path_to_string(path)
+  if not path then
     return
   end
 
@@ -55,11 +71,12 @@ function M.get_session()
 end
 
 ---Relativize a path against the git root for consistent storage/lookup
----@param path string|nil
+---@param path string|table|nil
 ---@param lifecycle table
 ---@param tabpage number
 ---@return string|nil
 local function relativize_path(path, lifecycle, tabpage)
+  path = path_to_string(path)
   if not path then
     return nil
   end
