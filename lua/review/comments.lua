@@ -305,10 +305,10 @@ end
 
 function M.delete_multi()
   local cfg = require("review.config").get()
-  local all_comments = store.get_all()
+  local _, all_comments = current_repo_comments()
 
   if #all_comments == 0 then
-    notify("No comments yet", vim.log.levels.INFO)
+    notify("No comments for this repo yet", vim.log.levels.INFO)
     return
   end
 
