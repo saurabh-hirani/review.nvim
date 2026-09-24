@@ -20,17 +20,40 @@ local function get_git_root()
   return nil
 end
 
----@param file string
----@return string
-local function resolve_path(file)
-  local cfg = config.get()
-  if cfg.export.path_style == "absolute" then
-    local git_root = get_git_root()
-    if git_root then
-      return git_root .. "/" .. file
+--- Git root of the repo the export is scoped to: the current buffer's file, then
+--- a codediff session, then cwd. Export (,Re) only sends the comments for the
+--- repo you are looking at.
+---@return string|nil
+local function current_repo_root()
+  local storage = require("review.storage")
+  local bufname = vim.api.nvim_buf_get_name(0)
+  if bufname and bufname ~= "" and not bufname:match("^%w+://") then
+    local root = storage.git_root_for(bufname)
+    if root then
+      return root
     end
   end
-  return file
+  local ok, hooks = pcall(require, "review.hooks")
+  if ok then
+    local root = hooks.get_git_root()
+    if root then
+      return root
+    end
+  end
+  return storage.git_root_for(vim.fn.getcwd()) or get_git_root()
+end
+
+---@param comment Comment
+---@return string
+local function resolve_path(comment)
+  local cfg = config.get()
+  if cfg.export.path_style == "absolute" then
+    local git_root = comment.git_root or current_repo_root()
+    if git_root then
+      return git_root .. "/" .. comment.file
+    end
+  end
+  return comment.file
 end
 
 ---Type keys allowed in the export, or nil when every type is exported.
@@ -47,16 +70,20 @@ local function allowed_types()
   return allowed
 end
 
----Comments included in the export, filtered by export.types.
+---Comments included in the export: the current repo's comments, filtered by
+---export.types.
 ---@return Comment[]
 function M.exported_comments()
+  local root = current_repo_root()
+  store.load(root)
+  local repo_comments = store.get_for_repo(root)
   local allowed = allowed_types()
   if not allowed then
-    return store.get_all()
+    return repo_comments
   end
   return vim.tbl_filter(function(comment)
     return allowed[comment.type] == true
-  end, store.get_all())
+  end, repo_comments)
 end
 
 ---@return string
@@ -96,7 +123,7 @@ function M.generate_markdown()
   for i, comment in ipairs(all_comments) do
     local type_name = string.upper(comment.type)
     local location
-    local file_path = resolve_path(comment.file)
+    local file_path = resolve_path(comment)
     local is_old = (comment.side or "new") == "old"
     if comment.line == 0 then
       location = file_path

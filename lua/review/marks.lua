@@ -219,6 +219,13 @@ function M.refresh()
     return
   end
 
+  -- Load the codediff session's repo comments (by the file's own git root)
+  -- before rendering, so marks show on a freshly opened session.
+  local session_root = hooks.get_git_root()
+  if session_root then
+    require("review.store").load(session_root)
+  end
+
   local orig_buf, mod_buf = hooks.get_buffers()
   local orig_path, mod_path = hooks.get_paths()
   if orig_buf then

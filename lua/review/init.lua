@@ -231,7 +231,9 @@ end
 local marks_visible = false
 
 --- Render review marks for a single normal (non-codediff) buffer, resolving its
---- path relative to the git root. No-op for unnamed/codediff buffers.
+--- path relative to the buffer file's OWN git root (not nvim's cwd) so files
+--- from several repos in one session each match their own comments. No-op for
+--- unnamed/codediff buffers.
 ---@param bufnr number
 function M._render_marks_for_buffer(bufnr)
   if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
@@ -241,10 +243,13 @@ function M._render_marks_for_buffer(bufnr)
   if not bufname or bufname == "" or bufname:match("^codediff://") then
     return
   end
-  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
-  if vim.v.shell_error ~= 0 or not git_root or git_root == "" then
+  local storage = require("review.storage")
+  local git_root = storage.git_root_for(bufname)
+  if not git_root or git_root == "" then
     return
   end
+  -- Load this repo's comments (idempotent) before rendering.
+  store.load(git_root)
   local rel = bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
   require("review.marks").render_for_buffer(bufnr, "new", rel)
 end
@@ -263,9 +268,10 @@ function M.toggle_marks()
       marks.refresh()
     else
       -- Outside a session: render every loaded normal buffer, not just the
-      -- current one, so all open files show marks. The BufEnter autocmd keeps
-      -- files entered later consistent while marks stay visible.
-      store.load()
+      -- current one, so all open files show marks. Each buffer loads its own
+      -- repo's comments (by the file's git root) inside _render_marks_for_buffer.
+      -- The BufEnter autocmd keeps files entered later consistent while marks
+      -- stay visible.
       for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(bufnr) then
           M._render_marks_for_buffer(bufnr)
@@ -294,24 +300,28 @@ function M.count()
   return store.count()
 end
 
---- Get relative file path for the current buffer (works outside codediff)
----@return string|nil
+--- Get relative path + git root for the current buffer (works outside codediff).
+--- Resolves the buffer file's OWN git root so a session spanning several repos
+--- keys each comment to the right repo.
+---@return string|nil rel git-root-relative path
+---@return string|nil git_root absolute git root
 local function get_buffer_rel_path()
   local bufname = vim.api.nvim_buf_get_name(0)
   if not bufname or bufname == "" then return nil end
-  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
-  if vim.v.shell_error ~= 0 or not git_root then return nil end
-  return bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
+  local storage = require("review.storage")
+  local git_root = storage.git_root_for(bufname)
+  if not git_root or git_root == "" then return nil end
+  return bufname:gsub("^" .. vim.pesc(git_root) .. "/", ""), git_root
 end
 
 --- Add a comment at cursor in any buffer (no codediff session needed)
 function M.annotate()
-  store.load()
-  local file = get_buffer_rel_path()
+  local file, git_root = get_buffer_rel_path()
   if not file then
     vim.notify("Not in a git repo", vim.log.levels.WARN, { title = "review.nvim" })
     return
   end
+  store.load(git_root)
   local line = vim.api.nvim_win_get_cursor(0)[1]
   local existing = store.get_at_line(file, line, "new")
   if existing then
@@ -322,7 +332,7 @@ function M.annotate()
   local popup = require("review.popup")
   popup.open(nil, nil, function(comment_type, text)
     if comment_type and text then
-      store.add(file, line, comment_type, text, nil, "new")
+      store.add(file, line, comment_type, text, nil, "new", git_root)
       vim.schedule(function()
         local marks = require("review.marks")
         marks.render_for_buffer(vim.api.nvim_get_current_buf(), "new", file)
@@ -337,12 +347,12 @@ end
 
 --- Add a comment for a visual range in any buffer
 function M.annotate_range()
-  store.load()
-  local file = get_buffer_rel_path()
+  local file, git_root = get_buffer_rel_path()
   if not file then
     vim.notify("Not in a git repo", vim.log.levels.WARN, { title = "review.nvim" })
     return
   end
+  store.load(git_root)
   local start_line = vim.fn.line("'<")
   local end_line = vim.fn.line("'>")
   if start_line > end_line then
@@ -352,7 +362,7 @@ function M.annotate_range()
   local popup = require("review.popup")
   popup.open(nil, nil, function(comment_type, text)
     if comment_type and text then
-      store.add(file, start_line, comment_type, text, end_line, "new")
+      store.add(file, start_line, comment_type, text, end_line, "new", git_root)
       vim.schedule(function()
         local marks = require("review.marks")
         marks.render_for_buffer(vim.api.nvim_get_current_buf(), "new", file)

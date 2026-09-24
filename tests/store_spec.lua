@@ -23,6 +23,50 @@ describe("review.store", function()
       assert.equals(2, #store.get_for_file("a.lua"))
       assert.equals(1, #store.get_for_file("b.lua"))
     end)
+
+    it("stores git_root when provided", function()
+      local c = store.add("helm/Chart.yaml", 1, "note", "why?", nil, "new", "/abs/repo")
+      assert.equals("/abs/repo", c.git_root)
+    end)
+
+    it("leaves git_root nil when not provided", function()
+      local c = store.add("file.lua", 1, "note", "no root")
+      assert.is_nil(c.git_root)
+    end)
+  end)
+
+  describe("get_for_repo", function()
+    it("returns only the requested repo's comments", function()
+      store.add("a.lua", 1, "note", "repo A", nil, "new", "/repoA")
+      store.add("b.lua", 1, "note", "repo B", nil, "new", "/repoB")
+
+      local a = store.get_for_repo("/repoA")
+      assert.equals(1, #a)
+      assert.equals("repo A", a[1].text)
+
+      local b = store.get_for_repo("/repoB")
+      assert.equals(1, #b)
+      assert.equals("repo B", b[1].text)
+    end)
+
+    it("includes unattributed (nil git_root) comments for any repo", function()
+      store.add("legacy.lua", 1, "note", "legacy")
+      store.add("a.lua", 1, "note", "repo A", nil, "new", "/repoA")
+
+      local a = store.get_for_repo("/repoA")
+      -- repo A comment + the unattributed one
+      assert.equals(2, #a)
+    end)
+
+    it("does not leak one repo's comments into another", function()
+      store.add("a.lua", 1, "note", "repo A", nil, "new", "/repoA")
+      store.add("b.lua", 1, "note", "repo B", nil, "new", "/repoB")
+
+      local a = store.get_for_repo("/repoA")
+      for _, c in ipairs(a) do
+        assert.are_not.equal("repo B", c.text)
+      end
+    end)
   end)
 
   describe("get_at_line", function()
