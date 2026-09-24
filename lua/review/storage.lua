@@ -1,6 +1,8 @@
 local M = {}
 
-local data_dir = vim.fn.stdpath("data") .. "/review"
+-- Storage directory. Overridable via $REVIEW_NVIM_DATA_DIR so tests can isolate
+-- from the user's real review data (and from each other).
+local data_dir = vim.env.REVIEW_NVIM_DATA_DIR or (vim.fn.stdpath("data") .. "/review")
 
 ---@type {rev1: string, rev2: string}|nil
 local current_revisions = nil
@@ -13,6 +15,7 @@ function M.clear_revisions()
   current_revisions = nil
 end
 
+---Git root of nvim's cwd (fallback when no explicit root is supplied).
 ---@return string|nil
 local function get_git_root()
   local handle = io.popen("git rev-parse --show-toplevel 2>/dev/null")
@@ -26,9 +29,39 @@ local function get_git_root()
   return nil
 end
 
+---Git root that owns an arbitrary file or directory path, independent of cwd.
+---This is what lets one nvim session store comments per-repo across several
+---repos: the storage key follows the file, not the working directory.
+---@param path string absolute or relative file/dir path
 ---@return string|nil
-local function get_git_branch()
-  local handle = io.popen("git rev-parse --abbrev-ref HEAD 2>/dev/null")
+function M.git_root_for(path)
+  if not path or path == "" then
+    return nil
+  end
+  local dir = vim.fn.fnamemodify(path, ":p:h")
+  local cmd = string.format("git -C %s rev-parse --show-toplevel 2>/dev/null", vim.fn.shellescape(dir))
+  local handle = io.popen(cmd)
+  if handle then
+    local result = handle:read("*a")
+    handle:close()
+    if result and result ~= "" then
+      return result:gsub("%s+$", "")
+    end
+  end
+  return nil
+end
+
+---Current branch of the repo at `git_root` (or cwd's repo when nil).
+---@param git_root? string
+---@return string|nil
+local function get_git_branch(git_root)
+  local cmd
+  if git_root and git_root ~= "" then
+    cmd = string.format("git -C %s rev-parse --abbrev-ref HEAD 2>/dev/null", vim.fn.shellescape(git_root))
+  else
+    cmd = "git rev-parse --abbrev-ref HEAD 2>/dev/null"
+  end
+  local handle = io.popen(cmd)
   if handle then
     local result = handle:read("*a")
     handle:close()
@@ -55,9 +88,13 @@ local function short_rev(rev)
   return rev:gsub("%^$", ""):sub(1, 8)
 end
 
+---Storage file path for a given repo root (defaults to cwd's repo). The key is
+---hash(git_root) plus the repo's branch (or the revision range), so each repo
+---and branch gets its own file regardless of nvim's cwd.
+---@param git_root? string absolute repo root; nil falls back to cwd's repo
 ---@return string|nil
-function M.get_storage_path()
-  local git_root = get_git_root()
+function M.get_storage_path(git_root)
+  git_root = git_root or get_git_root()
   if not git_root then
     return nil
   end
@@ -73,7 +110,7 @@ function M.get_storage_path()
     return string.format("%s/%s-%s_%s.json", data_dir, project_hash, r1, r2)
   end
 
-  local branch = get_git_branch()
+  local branch = get_git_branch(git_root)
   if not branch then
     return nil
   end
@@ -83,8 +120,9 @@ function M.get_storage_path()
 end
 
 ---@param comments table
-function M.save(comments)
-  local path = M.get_storage_path()
+---@param git_root? string repo root to save under (defaults to cwd's repo)
+function M.save(comments, git_root)
+  local path = M.get_storage_path(git_root)
   if not path then
     return
   end
@@ -132,11 +170,12 @@ function M.cleanup_expired()
   end, 0)
 end
 
+---@param git_root? string repo root to load from (defaults to cwd's repo)
 ---@return table
-function M.load()
+function M.load(git_root)
   M.cleanup_expired()
 
-  local path = M.get_storage_path()
+  local path = M.get_storage_path(git_root)
   if not path then
     return {}
   end
@@ -159,8 +198,9 @@ function M.load()
   return {}
 end
 
-function M.clear()
-  local path = M.get_storage_path()
+---@param git_root? string repo root to clear (defaults to cwd's repo)
+function M.clear(git_root)
+  local path = M.get_storage_path(git_root)
   if path then
     os.remove(path)
   end

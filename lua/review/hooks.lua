@@ -70,36 +70,65 @@ function M.get_session()
   return lifecycle.get_session(current_tabpage)
 end
 
----Relativize a path against the git root for consistent storage/lookup
----@param path string|table|nil
+---Relativize a path against the git root for consistent storage/lookup, and
+---report which git root it was relativized against. codediff hands a Path
+---object {relative, absolute}; its `.absolute` is resolved against the file's
+---OWN git root, which may differ from nvim's cwd (reviewing a sibling repo).
+---Prefer that absolute field so we strip against the right root instead of
+---re-deriving with fnamemodify(:p), which would wrongly anchor a relative path
+---to cwd.
+---@param path string|table|nil raw codediff path (Path object or string)
 ---@param lifecycle table
 ---@param tabpage number
----@return string|nil
+---@return string|nil rel path relative to git root
+---@return string|nil git_root absolute git root the path is relative to
 local function relativize_path(path, lifecycle, tabpage)
+  local abs_from_ref
+  if type(path) == "table" and path.absolute and path.absolute ~= "" then
+    abs_from_ref = path.absolute
+  end
   path = path_to_string(path)
   if not path then
-    return nil
+    return nil, nil
   end
   local git_ctx = lifecycle.get_git_context(tabpage)
-  if git_ctx and git_ctx.git_root then
-    local abs = vim.fn.fnamemodify(path, ":p")
-    return normalize_path(abs:gsub("^" .. vim.pesc(git_ctx.git_root) .. "/", ""))
+  if git_ctx and git_ctx.git_root and git_ctx.git_root ~= "" then
+    local abs = abs_from_ref or vim.fn.fnamemodify(path, ":p")
+    return normalize_path(abs:gsub("^" .. vim.pesc(git_ctx.git_root) .. "/", "")), git_ctx.git_root
   end
-  return normalize_path(vim.fn.fnamemodify(path, ":."))
+  return normalize_path(vim.fn.fnamemodify(path, ":.")), nil
 end
 
----@return string|nil file path
+-- Exposed for testing; internal.
+M._relativize_path = relativize_path
+
+---Absolute git root of the current codediff session, if any.
+---@return string|nil
+function M.get_git_root()
+  local lifecycle = get_lifecycle()
+  if not lifecycle or not current_tabpage then
+    return nil
+  end
+  local git_ctx = lifecycle.get_git_context(current_tabpage)
+  if git_ctx and git_ctx.git_root and git_ctx.git_root ~= "" then
+    return git_ctx.git_root
+  end
+  return nil
+end
+
+---@return string|nil file path relative to git root
 ---@return number|nil line number
 ---@return "old"|"new"|nil side
+---@return string|nil git_root the file path is relative to
 function M.get_cursor_position()
   local lifecycle = get_lifecycle()
   if not lifecycle or not current_tabpage then
-    return nil, nil, nil
+    return nil, nil, nil, nil
   end
 
   local sess = lifecycle.get_session(current_tabpage)
   if not sess then
-    return nil, nil, nil
+    return nil, nil, nil, nil
   end
 
   local cursor = vim.api.nvim_win_get_cursor(0)
@@ -132,16 +161,18 @@ function M.get_cursor_position()
   end
 
   if not file_path then
-    return nil, nil, nil
+    return nil, nil, nil, nil
   end
 
-  return relativize_path(file_path, lifecycle, current_tabpage), cursor[1], side
+  local rel, git_root = relativize_path(file_path, lifecycle, current_tabpage)
+  return rel, cursor[1], side, git_root
 end
 
----@return string|nil file path
+---@return string|nil file path relative to git root
 ---@return number|nil start line
 ---@return number|nil end line
 ---@return "old"|"new"|nil side
+---@return string|nil git_root the file path is relative to
 function M.get_visual_range()
   local start_line = vim.fn.line("'<")
   local end_line = vim.fn.line("'>")
@@ -149,12 +180,12 @@ function M.get_visual_range()
     start_line, end_line = end_line, start_line
   end
 
-  local file, _, side = M.get_cursor_position()
+  local file, _, side, git_root = M.get_cursor_position()
   if not file then
-    return nil, nil, nil, nil
+    return nil, nil, nil, nil, nil
   end
 
-  return file, start_line, end_line, side
+  return file, start_line, end_line, side, git_root
 end
 
 ---@return number|nil original buffer
@@ -175,8 +206,9 @@ function M.get_paths()
     return nil, nil
   end
   local orig_path, mod_path = lifecycle.get_paths(current_tabpage)
-  return relativize_path(orig_path, lifecycle, current_tabpage),
-    relativize_path(mod_path, lifecycle, current_tabpage)
+  local orig_rel = relativize_path(orig_path, lifecycle, current_tabpage)
+  local mod_rel = relativize_path(mod_path, lifecycle, current_tabpage)
+  return orig_rel, mod_rel
 end
 
 -- Called when codediff session is created

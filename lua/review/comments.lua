@@ -9,9 +9,33 @@ local function notify(msg, level)
   vim.notify(msg, level, { title = "review.nvim" })
 end
 
+--- Resolve the git root of the current buffer's file, load that repo's comments
+--- and return them sorted. Both :Review quickfix and :Review list scope to the
+--- repo you are looking at, so a session that touched several repos shows only
+--- the current repo's comments.
+---@return string|nil git_root
+---@return Comment[] comments for that repo
+local function current_repo_comments()
+  local storage = require("review.storage")
+  local bufname = vim.api.nvim_buf_get_name(0)
+  local git_root
+  if bufname and bufname ~= "" and not bufname:match("^%w+://") then
+    git_root = storage.git_root_for(bufname)
+  end
+  -- Fall back to a codediff session root, then to cwd's repo.
+  if not git_root then
+    git_root = hooks.get_git_root()
+  end
+  if not git_root then
+    git_root = storage.git_root_for(vim.fn.getcwd())
+  end
+  store.load(git_root)
+  return git_root, store.get_for_repo(git_root)
+end
+
 ---@param initial_type? string a comment type key from config.comment_types
 function M.add_at_cursor(initial_type)
-  local file, line, side = hooks.get_cursor_position()
+  local file, line, side, git_root = hooks.get_cursor_position()
   if not file or not line then
     notify("Could not determine cursor position", vim.log.levels.WARN)
     return
@@ -25,7 +49,7 @@ function M.add_at_cursor(initial_type)
 
   popup.open(initial_type, nil, function(comment_type, text)
     if comment_type and text then
-      store.add(file, line, comment_type, text, nil, side)
+      store.add(file, line, comment_type, text, nil, side, git_root)
       vim.schedule(function()
         marks.refresh()
       end)
@@ -41,7 +65,7 @@ end
 
 ---@param initial_type? string a comment type key from config.comment_types
 function M.file_comment(initial_type)
-  local file = hooks.get_cursor_position()
+  local file, _, _, git_root = hooks.get_cursor_position()
   if not file then
     notify("Could not determine file", vim.log.levels.WARN)
     return
@@ -61,7 +85,7 @@ function M.file_comment(initial_type)
   else
     popup.open(initial_type, nil, function(comment_type, text)
       if comment_type and text then
-        store.add(file, 0, comment_type, text)
+        store.add(file, 0, comment_type, text, nil, nil, git_root)
         vim.schedule(function()
           marks.refresh()
         end)
@@ -73,7 +97,7 @@ end
 
 ---@param initial_type? string a comment type key from config.comment_types
 function M.add_for_range(initial_type)
-  local file, start_line, end_line, side = hooks.get_visual_range()
+  local file, start_line, end_line, side, git_root = hooks.get_visual_range()
   if not file or not start_line or not end_line then
     notify("Could not determine visual selection", vim.log.levels.WARN)
     return
@@ -87,7 +111,7 @@ function M.add_for_range(initial_type)
 
   popup.open(initial_type, nil, function(comment_type, text)
     if comment_type and text then
-      store.add(file, start_line, comment_type, text, end_line, side)
+      store.add(file, start_line, comment_type, text, end_line, side, git_root)
       vim.schedule(function()
         marks.refresh()
       end)
@@ -191,10 +215,10 @@ end
 
 function M.list()
   local config = require("review.config").get()
-  local all_comments = store.get_all()
+  local repo_root, all_comments = current_repo_comments()
 
   if #all_comments == 0 then
-    notify("No comments yet", vim.log.levels.INFO)
+    notify("No comments for this repo yet", vim.log.levels.INFO)
     return
   end
 
@@ -258,15 +282,14 @@ function M.list()
       end
     end
 
-    -- Non-diff (or explorer miss): open the file itself. Comments store paths
-    -- relative to the git root, so resolve against it before editing.
+    -- Non-diff (or explorer miss): open the file itself. Prefer the comment's
+    -- own git_root (then the repo root resolved for this buffer) so a comment
+    -- from a sibling repo opens the right file regardless of nvim's cwd.
     if not jumped then
       local path = comment.file
-      if vim.fn.filereadable(path) ~= 1 then
-        local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
-        if vim.v.shell_error == 0 and git_root and git_root ~= "" then
-          path = git_root .. "/" .. comment.file
-        end
+      local root = comment.git_root or repo_root
+      if vim.fn.filereadable(path) ~= 1 and root and root ~= "" then
+        path = root .. "/" .. comment.file
       end
       if vim.fn.filereadable(path) == 1 then
         vim.cmd("edit " .. vim.fn.fnameescape(path))
@@ -352,36 +375,32 @@ function M.delete_multi()
   end
 end
 
---- Populate the quickfix list with all comments and open it, so you can
---- :cnext/:cprev and jump to each. Works in or out of a diff. Comments store
---- paths relative to the git root, so resolve them to absolute for quickfix.
+--- Populate the quickfix list with the current repo's comments and open it, so
+--- you can :cnext/:cprev and jump to each. Scoped to the git root of the current
+--- buffer's file: a session that touched several repos shows only this repo's
+--- comments. Jump targets are built from each comment's stored git_root, so they
+--- resolve regardless of nvim's cwd.
 function M.quickfix()
-  store.load()
   local cfg = require("review.config").get()
-  local all_comments = store.get_all()
+  local repo_root, comments = current_repo_comments()
 
-  if #all_comments == 0 then
-    notify("No comments yet", vim.log.levels.INFO)
+  if #comments == 0 then
+    notify("No comments for this repo yet", vim.log.levels.INFO)
     return
   end
 
-  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
-  local has_root = vim.v.shell_error == 0 and git_root and git_root ~= ""
   local absolute = cfg.quickfix and cfg.quickfix.path_style == "absolute"
 
   local items = {}
-  for _, comment in ipairs(all_comments) do
+  for _, comment in ipairs(comments) do
     local type_info = cfg.comment_types[comment.type]
     local name = type_info and type_info.name or comment.type
-    -- Resolve the stored (git-relative) path to absolute for a reliable jump
-    -- target and for absolute display. `module` overrides the displayed path,
-    -- so it carries path_style: "absolute" = full path, "relative" = the stored
-    -- git-relative path. Prefer fnamemodify(:p) when already resolvable, else
-    -- join the git root (don't gate on filereadable — that made absolute mode
-    -- fall back to relative when run from the git root).
+    -- Absolute jump target: prefer the comment's own git_root, then the repo
+    -- root resolved for this buffer, else fnamemodify(:p) as a last resort.
+    local root = comment.git_root or repo_root
     local abs
-    if has_root then
-      abs = git_root .. "/" .. comment.file
+    if root and root ~= "" then
+      abs = root .. "/" .. comment.file
     else
       abs = vim.fn.fnamemodify(comment.file, ":p")
     end
