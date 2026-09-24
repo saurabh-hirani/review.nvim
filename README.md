@@ -352,7 +352,7 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
 
 - **Fix focus stealing** ([#1](https://github.com/saurabh-hirani/review.nvim/pull/1)) — file selection in the explorer no longer steals focus back to the diff pane.
   - Review keymaps no longer override explorer keymaps.
-  - From upstream [PR #31](https://github.com/georgeguimaraes/review.nvim/pull/31), not yet merged.
+  - Based on upstream [PR #31](https://github.com/georgeguimaraes/review.nvim/pull/31).
 - **Absolute path export** ([#2](https://github.com/saurabh-hirani/review.nvim/pull/2)) — `export.path_style = "absolute"` includes full file paths, unambiguous when pasting into agents.
 - **Configurable comment type order** ([#3](https://github.com/saurabh-hirani/review.nvim/pull/3)) — `popup.type_order` and `popup.default_type` choose which types appear and in what order.
 - **Toggle marks visibility** ([#4](https://github.com/saurabh-hirani/review.nvim/pull/4)) — `:Review marks` (or a keymap) toggles comment marks on/off.
