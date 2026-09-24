@@ -350,24 +350,38 @@ make test
 
 Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
 
-- **Fix focus stealing** ([#1](https://github.com/saurabh-hirani/review.nvim/pull/1)) — file selection in the explorer no longer steals focus back to the diff pane, and review keymaps no longer override explorer keymaps (from upstream [PR #31](https://github.com/georgeguimaraes/review.nvim/pull/31), not yet merged).
+- **Fix focus stealing** ([#1](https://github.com/saurabh-hirani/review.nvim/pull/1)) — file selection in the explorer no longer steals focus back to the diff pane.
+  - Review keymaps no longer override explorer keymaps.
+  - From upstream [PR #31](https://github.com/georgeguimaraes/review.nvim/pull/31), not yet merged.
 - **Absolute path export** ([#2](https://github.com/saurabh-hirani/review.nvim/pull/2)) — `export.path_style = "absolute"` includes full file paths, unambiguous when pasting into agents.
 - **Configurable comment type order** ([#3](https://github.com/saurabh-hirani/review.nvim/pull/3)) — `popup.type_order` and `popup.default_type` choose which types appear and in what order.
 - **Toggle marks visibility** ([#4](https://github.com/saurabh-hirani/review.nvim/pull/4)) — `:Review marks` (or a keymap) toggles comment marks on/off.
 - **Restore edit on close** ([#5](https://github.com/saurabh-hirani/review.nvim/pull/5)) — `codediff.restore_edit_on_close` controls whether buffers stay readonly after closing (default: readonly, to prevent line drift).
 - **Multi-select delete** ([#6](https://github.com/saurabh-hirani/review.nvim/pull/6)) — `D` in readonly mode or `:Review delete` opens an fzf multi-select picker to bulk-delete comments.
 - **Keep marks visible on close** ([#8](https://github.com/saurabh-hirani/review.nvim/pull/8)) — marks stay on buffers after closing so comments remain visible; `:Review marks` hides them.
-- **Annotate normal buffers** ([#9](https://github.com/saurabh-hirani/review.nvim/pull/9)) — annotate any buffer without opening the diff view; the export preview is editable (`:w` re-copies to clipboard) and its `S`/`T`/`H` keys send to sidekick/tmux/herdr, just like the diff view.
+- **Annotate normal buffers** ([#9](https://github.com/saurabh-hirani/review.nvim/pull/9)) — annotate any buffer without opening the diff view.
+  - The export preview is editable; `:w` re-copies to clipboard.
+  - Its `S`/`T`/`H` keys send to sidekick/tmux/herdr, just like the diff view.
 - **Scope review to its own sessions** ([#10](https://github.com/saurabh-hirani/review.nvim/pull/10)) — review only attaches to codediff sessions it opened via `:Review`; a bare `:CodeDiff` stays plain codediff.
-- **Bring your own comment types** ([#12](https://github.com/saurabh-hirani/review.nvim/pull/12)) — the headline overhaul of this fork. Upstream's built-in types, their keymaps, and their colours are all removed. The plugin now ships nothing by default and hands every construct to you:
+- **Bring your own comment types** ([#12](https://github.com/saurabh-hirani/review.nvim/pull/12)) — the headline overhaul of this fork: the plugin ships no built-in types, keymaps, or colours and hands every construct to you.
   - **No default types** — you define `comment_types` entirely; the built-ins no longer leak in via config merge, and you supply your own highlight groups for each type's colour.
-  - **Derived per-type keymaps** — each type's add-keymap is built from `add_type_prefix .. type.key` (e.g. prefix `<localleader>c` + key `s` = `<localleader>cs`). Define a type, get its keymap for free. No hardcoded `add_note`/`add_praise`.
-  - **Configurable export preamble** — `export.header` and `export.side_note` let you write the exact instructions your agent sees. Set either to `false` to omit it.
-- **Filter which types are exported** ([#13](https://github.com/saurabh-hirani/review.nvim/pull/13)) — `export.types` picks the type keys that reach the clipboard. Types left out stay fully visible in the diff (icon, box, tint, navigation) but never reach the agent, so a "note to self" type can live alongside types meant as instructions.
-- **Configurable review expiry** ([#14](https://github.com/saurabh-hirani/review.nvim/pull/14)) — `storage.expiry_days` replaces upstream's hardcoded 7-day cleanup, and the default flips to keeping reviews forever. Set a positive number of days to opt into cleanup.
-- **Send to tmux** ([#15](https://github.com/saurabh-hirani/review.nvim/pull/15)) — `T` (or `:Review tmux`) sends the exported comments to a tmux pane, the tmux analogue of send-to-sidekick. A pane picker (fzf-lua multi-select, `vim.ui.select` fallback) lists `+ (next pane)` plus every live pane in the current session; `tmux.auto_select_panes` skips it and `tmux.send_enter` submits immediately. Honours `export.types`.
-- **Send to herdr** ([#16](https://github.com/saurabh-hirani/review.nvim/pull/16)) — `H` (or `:Review herdr`) sends the exported comments to a [herdr](https://github.com/herdr) pane, the herdr analogue of `T`. The picker is scoped to the current herdr workspace and its top entry is a directional neighbour (default `right`, for an editor-left / agent-right layout); `herdr.panes` also accepts `current` or an explicit pane id, `herdr.auto_select_panes` skips the picker, and `herdr.send_enter` submits immediately. Honours `export.types`.
-- **Comments to quickfix** ([#21](https://github.com/saurabh-hirani/review.nvim/pull/21)) — `:Review quickfix` sends every comment to the quickfix list and opens it, so you can `:cnext`/`:cprev` and jump to each (works in or out of a diff). `quickfix.path_style` chooses `"relative"` (default) or `"absolute"` paths in the list; jumping works either way. Because the list is a plain buffer, you can also visually select a few rows, yank them, and paste just those into your agent — handy when you want it to act on comments one at a time rather than the whole export at once.
+  - **Derived per-type keymaps** — each type's add-keymap is built from `add_type_prefix .. type.key` (e.g. prefix `<localleader>c` + key `s` = `<localleader>cs`), so defining a type gives its keymap for free.
+  - **Configurable export preamble** — `export.header` and `export.side_note` let you write the exact instructions your agent sees; set either to `false` to omit it.
+- **Filter which types are exported** ([#13](https://github.com/saurabh-hirani/review.nvim/pull/13)) — `export.types` picks the type keys that reach the clipboard.
+  - Types left out stay fully visible in the diff (icon, box, tint, navigation) but never reach the agent, so a "note to self" type can live alongside types meant as instructions.
+- **Configurable review expiry** ([#14](https://github.com/saurabh-hirani/review.nvim/pull/14)) — `storage.expiry_days` replaces upstream's hardcoded 7-day cleanup, defaulting to keeping reviews forever.
+  - Set a positive number of days to opt into cleanup.
+- **Send to tmux** ([#15](https://github.com/saurabh-hirani/review.nvim/pull/15)) — `T` (or `:Review tmux`) sends the exported comments to a tmux pane, the tmux analogue of send-to-sidekick.
+  - A pane picker (fzf-lua multi-select, `vim.ui.select` fallback) lists `+ (next pane)` plus every live pane in the current session.
+  - `tmux.auto_select_panes` skips the picker and `tmux.send_enter` submits immediately.
+  - Honours `export.types`.
+- **Send to herdr** ([#16](https://github.com/saurabh-hirani/review.nvim/pull/16)) — `H` (or `:Review herdr`) sends the exported comments to a [herdr](https://github.com/herdr) pane, the herdr analogue of `T`.
+  - The picker is scoped to the current herdr workspace; its top entry is a directional neighbour (default `right`, for an editor-left / agent-right layout).
+  - `herdr.panes` also accepts `current` or an explicit pane id, `herdr.auto_select_panes` skips the picker, and `herdr.send_enter` submits immediately.
+  - Honours `export.types`.
+- **Comments to quickfix** ([#21](https://github.com/saurabh-hirani/review.nvim/pull/21)) — `:Review quickfix` sends every comment to the quickfix list and opens it, so you can `:cnext`/`:cprev` and jump to each (works in or out of a diff).
+  - `quickfix.path_style` chooses `"relative"` (default) or `"absolute"` paths in the list; jumping works either way.
+  - The list is a plain buffer, so you can visually select a few rows, yank them, and paste just those into your agent — handy when acting on comments one at a time.
 - **Per-repo comment keying** ([#24](https://github.com/saurabh-hirani/review.nvim/pull/24)) — comments are keyed by each file's own git root, not by nvim's working directory.
   - Open nvim from anywhere and review files across several repos in one session; each repo keeps its own per-branch review file.
   - `:Review quickfix`, `:Review list`, and export scope to the repo of the file in the current buffer.
