@@ -6,6 +6,28 @@ An opinionated fork of [georgeguimaraes/review.nvim](https://github.com/georgegu
 
 *A review with two types from a custom config: a green suggestion and a magenta question. The top pane shows the comments inline on the diff (gutter icon, box, line tint); the bottom pane shows the exported markdown, including the custom preamble and per-line tags, ready to paste into a coding agent.*
 
+## Table of Contents
+
+* [Why the fork?](#why-the-fork)
+* [Concepts](#concepts)
+* [Requirements](#requirements)
+* [Installation](#installation)
+* [Usage](#usage)
+* [Workflow](#workflow)
+* [Configuration](#configuration)
+   * [Comment types](#comment-types)
+   * [Filtering the export](#filtering-the-export)
+   * [Send to tmux](#send-to-tmux)
+   * [Send to herdr](#send-to-herdr)
+   * [Keymap options](#keymap-options)
+   * [Other options](#other-options)
+   * [Keybindings in the diff view](#keybindings-in-the-diff-view)
+* [Export Format](#export-format)
+* [Running Tests](#running-tests)
+* [Features added in the fork](#features-added-in-the-fork)
+* [License](#license)
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+
 ## Why the fork?
 
 The way you talk to a coding agent is personal. One person reviews with just "suggestion" and "question". Another wants "blocker", "nit", and "praise". The labels, the icons, the colours, the keys you press, and the words that wrap your exported comments are part of *your* workflow, not something a plugin should decide for you.
