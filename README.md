@@ -437,6 +437,11 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
   - `:Review list`, `:Review quickfix`, marks, and export all resolve these path-keyed comments to the right file.
   - Files inside a repo (tracked or untracked) are unchanged — still keyed by repo and branch.
   - Only buffers with no file on disk (unnamed buffers, `scheme://` buffers) are refused.
+- **Categorized export ordering** ([#29](https://github.com/saurabh-hirani/review.nvim/pull/29)) — `export.order` controls how the exported list is laid out.
+  - `"as_added"` (default) keeps one flat list in file/line order, with types interleaved.
+  - `"categorized"` groups the comments into a section per type (`## TYPE` heading, numbering restarting each section, blank line between), so you can act on all of one kind before the next.
+  - `export.category_order` orders those sections `"alphabetical"` (default, by type name) or `"config"` (by `popup.type_order`).
+  - Applies everywhere the export is used: the `C` keymap, `:Review export`, preview, close, and the sidekick/tmux/herdr sends.
 
 ## License
 
