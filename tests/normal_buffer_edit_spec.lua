@@ -99,4 +99,32 @@ describe("edit/delete in a normal buffer (no codediff session)", function()
     assert.is_false(called)
     assert.equals(0, store.count())
   end)
+
+  it("delete_multi (:Review delete) removes the comment and clears the mark", function()
+    local marks = require("review.marks")
+    local c = store.add("lua/review/store.lua", 5, "note", "bulk delete", nil, "new", git_root)
+    marks.render_for_buffer(bufnr, "new", "lua/review/store.lua")
+
+    -- No fzf-lua in headless tests, so delete_multi uses the vim.ui.select
+    -- fallback: first the entry list, then (some paths) a Yes/No. Pick the
+    -- single entry, and answer "Yes" if a confirmation is asked.
+    local orig_select = vim.ui.select
+    vim.ui.select = function(items, _opts, cb)
+      if items and items[1] == "Yes" then
+        cb("Yes")
+      else
+        cb(items[1])
+      end
+    end
+
+    comments.delete_multi()
+
+    vim.ui.select = orig_select
+    assert.is_nil(store.get(c.id))
+
+    vim.wait(50, function() return false end)
+    local ns_id = vim.api.nvim_create_namespace("review")
+    local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, ns_id, 0, -1, {})
+    assert.equals(0, #extmarks)
+  end)
 end)
