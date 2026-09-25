@@ -52,6 +52,39 @@ local function current_repo_comments()
   return git_root, store.get_for_repo(git_root)
 end
 
+--- Resolve the comment target at the cursor for edit/delete, working both in a
+--- codediff session and in a plain buffer. Inside a session, defer to the
+--- session-aware hook (knows old/new sides). Outside one, resolve the current
+--- buffer's own file the same way :Review annotate does, loading that repo (or
+--- nogit root) so store lookups see its comments.
+---@return string|nil file relative path
+---@return number|nil line 1-based cursor line
+---@return "old"|"new"|nil side
+local function cursor_target()
+  local file, line, side = hooks.get_cursor_position()
+  if file and line then
+    return file, line, side
+  end
+  -- No codediff session: fall back to the current normal buffer.
+  local bufname = vim.api.nvim_buf_get_name(0)
+  if not bufname or bufname == "" or bufname:match("^%w+://") then
+    return nil, nil, nil
+  end
+  local storage = require("review.storage")
+  local root = storage.root_for(bufname)
+  if not root or root == "" then
+    return nil, nil, nil
+  end
+  store.load(root)
+  local rel
+  if storage.is_nogit_root(root) then
+    rel = vim.fn.fnamemodify(bufname, ":t")
+  else
+    rel = bufname:gsub("^" .. vim.pesc(root) .. "/", "")
+  end
+  return rel, vim.api.nvim_win_get_cursor(0)[1], "new"
+end
+
 ---@param initial_type? string a comment type key from config.comment_types
 function M.add_at_cursor(initial_type)
   local file, line, side, git_root = hooks.get_cursor_position()
@@ -139,8 +172,22 @@ function M.add_for_range(initial_type)
   end)
 end
 
+--- Refresh marks after an edit/delete. In a codediff session, marks.refresh()
+--- re-renders the diff buffers. Outside a session it renders nothing (no
+--- session buffers), so re-render the current normal buffer directly with the
+--- known rel path/side, which clears stale marks and redraws from the store.
+---@param file string rel path used for the store lookup
+---@param side "old"|"new"|nil
+local function refresh_marks(file, side)
+  if hooks.get_session() then
+    marks.refresh()
+    return
+  end
+  marks.render_for_buffer(vim.api.nvim_get_current_buf(), side or "new", file)
+end
+
 function M.edit_at_cursor()
-  local file, line, side = hooks.get_cursor_position()
+  local file, line, side = cursor_target()
   if not file or not line then
     notify("Could not determine cursor position", vim.log.levels.WARN)
     return
@@ -160,7 +207,7 @@ function M.edit_at_cursor()
       store.update(comment.id, text, new_type)
       -- Schedule refresh to run after popup is fully closed
       vim.schedule(function()
-        marks.refresh()
+        refresh_marks(file, side)
       end)
       notify("Comment updated", vim.log.levels.INFO)
     end
@@ -168,7 +215,7 @@ function M.edit_at_cursor()
 end
 
 function M.delete_at_cursor()
-  local file, line, side = hooks.get_cursor_position()
+  local file, line, side = cursor_target()
   if not file or not line then
     notify("Could not determine cursor position", vim.log.levels.WARN)
     return
@@ -190,7 +237,7 @@ function M.delete_at_cursor()
       store.delete(comment.id)
       -- Schedule refresh to run after UI is closed
       vim.schedule(function()
-        marks.refresh()
+        refresh_marks(file, side)
       end)
       notify("Comment deleted", vim.log.levels.INFO)
     end

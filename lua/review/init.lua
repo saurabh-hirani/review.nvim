@@ -336,7 +336,10 @@ function M.annotate()
   local line = vim.api.nvim_win_get_cursor(0)[1]
   local existing = store.get_at_line(file, line, "new")
   if existing then
-    vim.notify("Comment already exists at this line. Use edit instead.", vim.log.levels.WARN, { title = "review.nvim" })
+    -- No codediff session here, so there is no readonly review buffer with the
+    -- edit/delete keymaps. Annotating an existing comment edits it in place,
+    -- making :Review annotate an add-or-edit toggle for normal buffers.
+    require("review.comments").edit_at_cursor()
     return
   end
 
