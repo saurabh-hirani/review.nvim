@@ -28,7 +28,7 @@ local function current_repo_root()
   local storage = require("review.storage")
   local bufname = vim.api.nvim_buf_get_name(0)
   if bufname and bufname ~= "" and not bufname:match("^%w+://") then
-    local root = storage.git_root_for(bufname)
+    local root = storage.root_for(bufname)
     if root then
       return root
     end
@@ -48,8 +48,14 @@ end
 local function resolve_path(comment)
   local cfg = config.get()
   if cfg.export.path_style == "absolute" then
+    local storage = require("review.storage")
     local git_root = comment.git_root or current_repo_root()
     if git_root then
+      -- A nogit:<dir> root already holds the file's absolute directory; the
+      -- comment.file is just the basename, so strip the prefix and join.
+      if storage.is_nogit_root(git_root) then
+        return git_root:sub(#storage.NOGIT_PREFIX + 1) .. "/" .. comment.file
+      end
       return git_root .. "/" .. comment.file
     end
   end

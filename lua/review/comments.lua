@@ -9,6 +9,25 @@ local function notify(msg, level)
   vim.notify(msg, level, { title = "review.nvim" })
 end
 
+--- Resolve a comment to an absolute filesystem path for jumping/quickfix.
+--- Handles nogit:<dir> roots (strip the prefix; the dir + basename is the file)
+--- and normal git roots (root .. "/" .. rel). `repo_root` is the fallback root
+--- resolved for the current buffer when the comment has no stored root.
+---@param comment Comment
+---@param repo_root? string
+---@return string
+local function comment_abspath(comment, repo_root)
+  local storage = require("review.storage")
+  local root = comment.git_root or repo_root
+  if root and root ~= "" then
+    if storage.is_nogit_root(root) then
+      return root:sub(#storage.NOGIT_PREFIX + 1) .. "/" .. comment.file
+    end
+    return root .. "/" .. comment.file
+  end
+  return vim.fn.fnamemodify(comment.file, ":p")
+end
+
 --- Resolve the git root of the current buffer's file, load that repo's comments
 --- and return them sorted. Both :Review quickfix and :Review list scope to the
 --- repo you are looking at, so a session that touched several repos shows only
@@ -20,7 +39,7 @@ local function current_repo_comments()
   local bufname = vim.api.nvim_buf_get_name(0)
   local git_root
   if bufname and bufname ~= "" and not bufname:match("^%w+://") then
-    git_root = storage.git_root_for(bufname)
+    git_root = storage.root_for(bufname)
   end
   -- Fall back to a codediff session root, then to cwd's repo.
   if not git_root then
@@ -287,9 +306,11 @@ function M.list()
     -- from a sibling repo opens the right file regardless of nvim's cwd.
     if not jumped then
       local path = comment.file
-      local root = comment.git_root or repo_root
-      if vim.fn.filereadable(path) ~= 1 and root and root ~= "" then
-        path = root .. "/" .. comment.file
+      if vim.fn.filereadable(path) ~= 1 then
+        local abs = comment_abspath(comment, repo_root)
+        if abs and abs ~= "" then
+          path = abs
+        end
       end
       if vim.fn.filereadable(path) == 1 then
         vim.cmd("edit " .. vim.fn.fnameescape(path))
@@ -397,13 +418,8 @@ function M.quickfix()
     local name = type_info and type_info.name or comment.type
     -- Absolute jump target: prefer the comment's own git_root, then the repo
     -- root resolved for this buffer, else fnamemodify(:p) as a last resort.
-    local root = comment.git_root or repo_root
-    local abs
-    if root and root ~= "" then
-      abs = root .. "/" .. comment.file
-    else
-      abs = vim.fn.fnamemodify(comment.file, ":p")
-    end
+    -- comment_abspath handles nogit:<dir> roots for non-git files.
+    local abs = comment_abspath(comment, repo_root)
     local side = (comment.side or "new") == "old" and " (old)" or ""
     table.insert(items, {
       filename = abs,

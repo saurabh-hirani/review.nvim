@@ -51,6 +51,34 @@ function M.git_root_for(path)
   return nil
 end
 
+-- Prefix marking a "root" that is not a git repo but a plain directory. Non-git
+-- files are keyed by their absolute parent directory (tagged with this prefix)
+-- so they persist to their own storage file without a git root or branch.
+M.NOGIT_PREFIX = "nogit:"
+
+---True when `root` is a non-git (path-based) root produced by `root_for`.
+---@param root? string
+---@return boolean
+function M.is_nogit_root(root)
+  return type(root) == "string" and root:sub(1, #M.NOGIT_PREFIX) == M.NOGIT_PREFIX
+end
+
+---Resolve the storage root for an arbitrary file/dir path. Returns the git root
+---when the path is inside a repo; otherwise a `nogit:<absolute dir>` root so the
+---file can still be annotated and persisted, keyed by its path.
+---@param path string absolute or relative file/dir path
+---@return string|nil root git root, or a nogit:<dir> root, or nil for bad input
+function M.root_for(path)
+  if not path or path == "" then
+    return nil
+  end
+  local git_root = M.git_root_for(path)
+  if git_root then
+    return git_root
+  end
+  return M.NOGIT_PREFIX .. vim.fn.fnamemodify(path, ":p:h")
+end
+
 ---Current branch of the repo at `git_root` (or cwd's repo when nil).
 ---@param git_root? string
 ---@return string|nil
@@ -103,6 +131,12 @@ function M.get_storage_path(git_root)
 
   -- Ensure directory exists (pcall to suppress error if exists)
   pcall(vim.fn.mkdir, data_dir, "p")
+
+  -- Non-git files have no branch and no revision range; key them purely by the
+  -- hash of their nogit:<dir> root so they get one stable storage file.
+  if M.is_nogit_root(git_root) then
+    return string.format("%s/%s-nogit.json", data_dir, project_hash)
+  end
 
   if current_revisions then
     local r1 = short_rev(current_revisions.rev1)

@@ -244,13 +244,18 @@ function M._render_marks_for_buffer(bufnr)
     return
   end
   local storage = require("review.storage")
-  local git_root = storage.git_root_for(bufname)
-  if not git_root or git_root == "" then
+  local root = storage.root_for(bufname)
+  if not root or root == "" then
     return
   end
   -- Load this repo's comments (idempotent) before rendering.
-  store.load(git_root)
-  local rel = bufname:gsub("^" .. vim.pesc(git_root) .. "/", "")
+  store.load(root)
+  local rel
+  if storage.is_nogit_root(root) then
+    rel = vim.fn.fnamemodify(bufname, ":t")
+  else
+    rel = bufname:gsub("^" .. vim.pesc(root) .. "/", "")
+  end
   require("review.marks").render_for_buffer(bufnr, "new", rel)
 end
 
@@ -302,23 +307,29 @@ end
 
 --- Get relative path + git root for the current buffer (works outside codediff).
 --- Resolves the buffer file's OWN git root so a session spanning several repos
---- keys each comment to the right repo.
----@return string|nil rel git-root-relative path
----@return string|nil git_root absolute git root
+--- keys each comment to the right repo. Files outside any git repo fall back to
+--- a path-based nogit:<dir> root so they can still be annotated.
+---@return string|nil rel path relative to the root
+---@return string|nil root absolute git root, or a nogit:<dir> root
 local function get_buffer_rel_path()
   local bufname = vim.api.nvim_buf_get_name(0)
   if not bufname or bufname == "" then return nil end
+  if bufname:match("^%w+://") then return nil end
   local storage = require("review.storage")
-  local git_root = storage.git_root_for(bufname)
-  if not git_root or git_root == "" then return nil end
-  return bufname:gsub("^" .. vim.pesc(git_root) .. "/", ""), git_root
+  local root = storage.root_for(bufname)
+  if not root or root == "" then return nil end
+  if storage.is_nogit_root(root) then
+    -- nogit root is the file's absolute directory; key it by basename.
+    return vim.fn.fnamemodify(bufname, ":t"), root
+  end
+  return bufname:gsub("^" .. vim.pesc(root) .. "/", ""), root
 end
 
 --- Add a comment at cursor in any buffer (no codediff session needed)
 function M.annotate()
   local file, git_root = get_buffer_rel_path()
   if not file then
-    vim.notify("Not in a git repo", vim.log.levels.WARN, { title = "review.nvim" })
+    vim.notify("Cannot annotate this buffer (no file on disk)", vim.log.levels.WARN, { title = "review.nvim" })
     return
   end
   store.load(git_root)
@@ -349,7 +360,7 @@ end
 function M.annotate_range()
   local file, git_root = get_buffer_rel_path()
   if not file then
-    vim.notify("Not in a git repo", vim.log.levels.WARN, { title = "review.nvim" })
+    vim.notify("Cannot annotate this buffer (no file on disk)", vim.log.levels.WARN, { title = "review.nvim" })
     return
   end
   store.load(git_root)

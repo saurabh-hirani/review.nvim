@@ -391,6 +391,11 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
     - No automatic migration.
     - Delete the old files from `$XDG_DATA_HOME/nvim/review/` (usually `~/.local/share/nvim/review/`; run `:echo stdpath("data")` to confirm) and start fresh.
     - Or rename each file to the name derived from the reviewed repo's git root to keep old comments.
+- **Annotate files outside any git repo** ([#26](https://github.com/saurabh-hirani/review.nvim/pull/26)) — `:Review annotate` (and its range variant) now works on files that live outside any git work tree.
+  - Such a file is keyed by its own path: comments persist to a per-directory review file, independent of any branch, and survive restarts.
+  - `:Review list`, `:Review quickfix`, marks, and export all resolve these path-keyed comments to the right file.
+  - Files inside a repo (tracked or untracked) are unchanged — still keyed by repo and branch.
+  - Only buffers with no file on disk (unnamed buffers, `scheme://` buffers) are refused.
 
 ## License
 
