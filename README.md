@@ -1,4 +1,4 @@
-# review.nvim 🧐
+# review.nvim 💬
 
 An opinionated fork of [georgeguimaraes/review.nvim](https://github.com/georgeguimaraes/review.nvim). review.nvim gives you code review annotations for [codediff.nvim](https://github.com/esmuellert/codediff.nvim), tuned for AI feedback loops: you review a diff, drop comments on lines, and export them as structured markdown to paste into your coding agent.
 
