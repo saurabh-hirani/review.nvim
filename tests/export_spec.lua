@@ -154,4 +154,114 @@ describe("review.export", function()
       assert.matches("No comments yet", export.generate_markdown())
     end)
   end)
+
+  describe("export.order", function()
+    after_each(function()
+      config.setup({})
+    end)
+
+    local function setup_order(order, category_order)
+      config.setup({
+        comment_types = {
+          suggestion = { key = "s", name = "Suggestion", icon = "!", hl = "H", line_hl = "HL" },
+          question = { key = "q", name = "Question", icon = "?", hl = "H", line_hl = "HL" },
+        },
+        popup = { type_order = { "suggestion", "question" }, default_type = "suggestion" },
+        export = { order = order, category_order = category_order },
+      })
+    end
+
+    -- Helper: the ordered list of type keys as exported.
+    local function exported_types()
+      local out = {}
+      for _, c in ipairs(export.exported_comments()) do
+        table.insert(out, c.type)
+      end
+      return out
+    end
+
+    it("as_added keeps the stored (file/line) order, interleaved types", function()
+      setup_order("as_added", "alphabetical")
+      -- One file, ascending lines, alternating types.
+      store.add("a.lua", 1, "question", "q1")
+      store.add("a.lua", 2, "suggestion", "s1")
+      store.add("a.lua", 3, "question", "q2")
+      store.add("a.lua", 4, "suggestion", "s2")
+
+      assert.same({ "question", "suggestion", "question", "suggestion" }, exported_types())
+    end)
+
+    it("categorized groups by type, alphabetical by name (Question before Suggestion)", function()
+      setup_order("categorized", "alphabetical")
+      store.add("a.lua", 1, "question", "q1")
+      store.add("a.lua", 2, "suggestion", "s1")
+      store.add("a.lua", 3, "question", "q2")
+      store.add("a.lua", 4, "suggestion", "s2")
+
+      -- Q comes before S alphabetically; order within a category preserved.
+      assert.same({ "question", "question", "suggestion", "suggestion" }, exported_types())
+    end)
+
+    it("categorized with category_order=config uses popup.type_order", function()
+      setup_order("categorized", "config")
+      store.add("a.lua", 1, "question", "q1")
+      store.add("a.lua", 2, "suggestion", "s1")
+      store.add("a.lua", 3, "question", "q2")
+
+      -- type_order is { suggestion, question }, so suggestions first.
+      assert.same({ "suggestion", "question", "question" }, exported_types())
+    end)
+
+    it("defaults to as_added when order is unset", function()
+      config.setup({
+        comment_types = {
+          suggestion = { key = "s", name = "Suggestion", icon = "!", hl = "H", line_hl = "HL" },
+          question = { key = "q", name = "Question", icon = "?", hl = "H", line_hl = "HL" },
+        },
+        popup = { type_order = { "suggestion", "question" } },
+      })
+      store.add("a.lua", 1, "question", "q1")
+      store.add("a.lua", 2, "suggestion", "s1")
+      assert.same({ "question", "suggestion" }, exported_types())
+    end)
+
+    it("categorized emits a section per type with restarting numbering", function()
+      setup_order("categorized", "alphabetical")
+      store.add("a.lua", 1, "suggestion", "s1")
+      store.add("a.lua", 2, "question", "q1")
+      store.add("a.lua", 3, "question", "q2")
+
+      local md = export.generate_markdown()
+      -- Section headings (alphabetical: Question then Suggestion).
+      assert.matches("## QUESTION", md)
+      assert.matches("## SUGGESTION", md)
+      -- Numbering restarts inside each section.
+      assert.matches("1%. `a%.lua:2` %- q1", md)
+      assert.matches("2%. `a%.lua:3` %- q2", md)
+      assert.matches("1%. `a%.lua:1` %- s1", md)
+      -- QUESTION section comes before SUGGESTION.
+      assert.is_true(md:find("## QUESTION", 1, true) < md:find("## SUGGESTION", 1, true))
+    end)
+
+    it("categorized separates sections with a blank line", function()
+      setup_order("categorized", "alphabetical")
+      store.add("a.lua", 1, "suggestion", "s1")
+      store.add("a.lua", 2, "question", "q1")
+
+      local md = export.generate_markdown()
+      -- A blank line precedes the second section heading.
+      assert.matches("\n\n## SUGGESTION", md)
+    end)
+
+    it("as_added stays a flat continuous list with [TYPE] tags", function()
+      setup_order("as_added", "alphabetical")
+      store.add("a.lua", 1, "question", "q1")
+      store.add("a.lua", 2, "suggestion", "s1")
+
+      local md = export.generate_markdown()
+      assert.matches("1%. %*%*%[QUESTION%]%*%*", md)
+      assert.matches("2%. %*%*%[SUGGESTION%]%*%*", md)
+      assert.not_matches("## QUESTION", md)
+    end)
+  end)
 end)

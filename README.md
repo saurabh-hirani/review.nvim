@@ -136,6 +136,19 @@ When you're done, press `q` to close. This copies all comments to the clipboard 
 
 Lines prefixed with `~` refer to the old (left) side of the diff. Ranges use `start-end`. Types you keep for yourself (📝 note, in the [Configuration](#configuration) example) stay in the diff and never show up here — see [Filtering the export](#filtering-the-export).
 
+By default (`export.order = "as_added"`) the comments are one flat list in file/line order. Set `export.order = "categorized"` to group them into a section per type instead, with the numbering restarting in each section — handy when you want the agent to work through all of one kind before the next:
+
+```
+## QUESTION
+1. `src/utils.py:~10` - why was this removed?
+2. `src/api.py:41` - is this path always set?
+
+## SUGGESTION
+1. `src/api.py:23` - prefer a set here
+```
+
+Sections are ordered alphabetically by type name; set `export.category_order = "config"` to follow your `popup.type_order` instead.
+
 Comments persist per branch, in `~/.local/share/nvim/review/`, so you can close Neovim and resume later. Saved reviews are kept forever by default; set `storage.expiry_days` to a positive number to have a review deleted once its file has gone that long without a change (adding or editing any comment resets the clock).
 
 ## Configuration
@@ -173,6 +186,12 @@ This is a complete, ready-to-copy setup for three types: 💡 **suggestion** (gr
       side_note = "Paths with ~ before the line number point to the old (left) side of the diff.",
       -- notes are for you, not the agent: they stay in the diff, out of the export
       types = { "suggestion", "question" },
+      -- "as_added" (default) = one flat list in file/line order; "categorized"
+      -- = a section per type so all questions group together, then suggestions.
+      order = "categorized",
+      -- when categorized, "alphabetical" (default) sorts sections by type name;
+      -- "config" follows popup.type_order instead.
+      category_order = "alphabetical",
     },
   },
   config = function(_, opts)
@@ -418,6 +437,11 @@ Built on top of [upstream](https://github.com/georgeguimaraes/review.nvim):
   - `:Review list`, `:Review quickfix`, marks, and export all resolve these path-keyed comments to the right file.
   - Files inside a repo (tracked or untracked) are unchanged — still keyed by repo and branch.
   - Only buffers with no file on disk (unnamed buffers, `scheme://` buffers) are refused.
+- **Categorized export ordering** ([#29](https://github.com/saurabh-hirani/review.nvim/pull/29)) — `export.order` controls how the exported list is laid out.
+  - `"as_added"` (default) keeps one flat list in file/line order, with types interleaved.
+  - `"categorized"` groups the comments into a section per type (`## TYPE` heading, numbering restarting each section, blank line between), so you can act on all of one kind before the next.
+  - `export.category_order` orders those sections `"alphabetical"` (default, by type name) or `"config"` (by `popup.type_order`).
+  - Applies everywhere the export is used: the `C` keymap, `:Review export`, preview, close, and the sidekick/tmux/herdr sends.
 
 ## License
 

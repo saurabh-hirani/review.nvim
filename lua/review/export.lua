@@ -76,23 +76,124 @@ local function allowed_types()
   return allowed
 end
 
+---Order the comments for export per `export.order`.
+--- "as_added": return as-is (already file/line sorted by the store).
+--- "categorized": group by type so all comments of one type are contiguous.
+---   Category order is alphabetical by type name, or by popup.type_order when
+---   export.category_order = "config". Order within a category is preserved.
+---@param comments Comment[]
+---@return Comment[]
+local function order_comments(comments)
+  local cfg = config.get()
+  if cfg.export.order ~= "categorized" then
+    return comments
+  end
+
+  -- Rank each type key for the chosen category order.
+  local rank = {}
+  if cfg.export.category_order == "config" then
+    for i, type_key in ipairs(cfg.popup.type_order or {}) do
+      rank[type_key] = i
+    end
+  else
+    -- Alphabetical by display name (fall back to the key), case-insensitive.
+    local keys = {}
+    local seen = {}
+    for _, c in ipairs(comments) do
+      if not seen[c.type] then
+        seen[c.type] = true
+        table.insert(keys, c.type)
+      end
+    end
+    table.sort(keys, function(a, b)
+      local ta = cfg.comment_types[a]
+      local tb = cfg.comment_types[b]
+      local na = (ta and ta.name or a):lower()
+      local nb = (tb and tb.name or b):lower()
+      if na == nb then
+        return a < b
+      end
+      return na < nb
+    end)
+    for i, key in ipairs(keys) do
+      rank[key] = i
+    end
+  end
+
+  -- Types with no rank (e.g. absent from a configured type_order) sort last, in
+  -- alphabetical key order, so nothing silently vanishes.
+  local fallback = #comments + 1
+  local ordered = {}
+  for i, c in ipairs(comments) do
+    ordered[i] = { c = c, i = i }
+  end
+  table.sort(ordered, function(x, y)
+    local rx = rank[x.c.type] or fallback
+    local ry = rank[y.c.type] or fallback
+    if rx ~= ry then
+      return rx < ry
+    end
+    if x.c.type ~= y.c.type then
+      return x.c.type < y.c.type
+    end
+    -- Same category: keep the incoming (file/line) order — stable.
+    return x.i < y.i
+  end)
+
+  local result = {}
+  for i, entry in ipairs(ordered) do
+    result[i] = entry.c
+  end
+  return result
+end
+
 ---Comments included in the export: the current repo's comments, filtered by
----export.types.
+---export.types and ordered by export.order.
 ---@return Comment[]
 function M.exported_comments()
   local root = current_repo_root()
   store.load(root)
   local repo_comments = store.get_for_repo(root)
   local allowed = allowed_types()
+  local filtered
   if not allowed then
-    return repo_comments
+    filtered = repo_comments
+  else
+    filtered = vim.tbl_filter(function(comment)
+      return allowed[comment.type] == true
+    end, repo_comments)
   end
-  return vim.tbl_filter(function(comment)
-    return allowed[comment.type] == true
-  end, repo_comments)
+  return order_comments(filtered)
 end
 
 ---@return string
+---Format a comment's location string (file:line, ranges, old-side tildes).
+---@param comment Comment
+---@return string
+local function format_location(comment)
+  local file_path = resolve_path(comment)
+  local is_old = (comment.side or "new") == "old"
+  if comment.line == 0 then
+    return file_path
+  elseif is_old then
+    if comment.line_end and comment.line_end ~= comment.line then
+      return string.format("%s:~%d-~%d", file_path, comment.line, comment.line_end)
+    end
+    return string.format("%s:~%d", file_path, comment.line)
+  elseif comment.line_end and comment.line_end ~= comment.line then
+    return string.format("%s:%d-%d", file_path, comment.line, comment.line_end)
+  end
+  return string.format("%s:%d", file_path, comment.line)
+end
+
+---Display name for a comment type key (falls back to the key, upper-cased).
+---@param type_key string
+---@return string
+local function type_display_name(type_key)
+  local info = config.get().comment_types[type_key]
+  return string.upper(info and info.name or type_key)
+end
+
 function M.generate_markdown()
   local all_comments = M.exported_comments()
 
@@ -114,9 +215,7 @@ function M.generate_markdown()
   local type_descriptions = {}
   for _, type_key in ipairs(cfg.popup.type_order) do
     if not allowed or allowed[type_key] then
-      local type_info = cfg.comment_types[type_key]
-      local name = type_info and type_info.name or type_key
-      table.insert(type_descriptions, string.upper(name))
+      table.insert(type_descriptions, type_display_name(type_key))
     end
   end
   table.insert(lines, "Comment types: " .. table.concat(type_descriptions, ", "))
@@ -125,26 +224,35 @@ function M.generate_markdown()
   end
   table.insert(lines, "")
 
-  -- Numbered list of comments
-  for i, comment in ipairs(all_comments) do
-    local type_name = string.upper(comment.type)
-    local location
-    local file_path = resolve_path(comment)
-    local is_old = (comment.side or "new") == "old"
-    if comment.line == 0 then
-      location = file_path
-    elseif is_old then
-      if comment.line_end and comment.line_end ~= comment.line then
-        location = string.format("%s:~%d-~%d", file_path, comment.line, comment.line_end)
-      else
-        location = string.format("%s:~%d", file_path, comment.line)
+  if cfg.export.order == "categorized" then
+    -- Sectioned output: a heading per type, numbering restarting at 1 within
+    -- each section, and a blank line between sections. exported_comments() has
+    -- already grouped the comments by type (contiguous), so walk in order and
+    -- start a new section on each type change.
+    local current_type = nil
+    local n = 0
+    local first_section = true
+    for _, comment in ipairs(all_comments) do
+      if comment.type ~= current_type then
+        current_type = comment.type
+        n = 0
+        if not first_section then
+          table.insert(lines, "")
+        end
+        first_section = false
+        table.insert(lines, string.format("## %s", type_display_name(comment.type)))
       end
-    elseif comment.line_end and comment.line_end ~= comment.line then
-      location = string.format("%s:%d-%d", file_path, comment.line, comment.line_end)
-    else
-      location = string.format("%s:%d", file_path, comment.line)
+      n = n + 1
+      table.insert(lines, string.format("%d. `%s` - %s", n, format_location(comment), comment.text))
     end
-    table.insert(lines, string.format("%d. **[%s]** `%s` - %s", i, type_name, location, comment.text))
+  else
+    -- Flat numbered list (as_added): one continuous 1..N sequence.
+    for i, comment in ipairs(all_comments) do
+      table.insert(
+        lines,
+        string.format("%d. **[%s]** `%s` - %s", i, type_display_name(comment.type), format_location(comment), comment.text)
+      )
+    end
   end
 
   return table.concat(lines, "\n")

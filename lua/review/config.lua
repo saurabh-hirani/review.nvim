@@ -55,6 +55,8 @@ local M = {}
 ---@field header string|false intro line(s) before the comment list; false to omit
 ---@field side_note string|false explanation of the ~ (old-side) prefix; false to omit
 ---@field types? string[] type keys to export; nil exports every type
+---@field order "as_added"|"categorized" ordering of the exported list (default "as_added")
+---@field category_order "alphabetical"|"config" category order when order = "categorized" (default "alphabetical")
 
 ---@class ReviewPopupConfig
 ---@field type_order string[]
@@ -130,6 +132,18 @@ M.defaults = {
     -- nil = export every type. Set to a list of type keys to export only those
     -- (e.g. { "suggestion", "question" } to keep notes out of the export).
     types = nil,
+    -- How the exported list is ordered:
+    --   "as_added"    keep the comments in their existing order (by file/line);
+    --                 reordering is up to you and shows through as-is.
+    --   "categorized" group by comment type so all of one type come together
+    --                 (e.g. every question, then every suggestion), which lets
+    --                 you act on one category at a time.
+    order = "as_added",
+    -- Category order when order = "categorized":
+    --   "alphabetical" sort categories by type name (default).
+    --   "config"       use your popup.type_order instead of alphabetical.
+    -- Ignored when order = "as_added".
+    category_order = "alphabetical",
   },
   popup = {
     type_order = {},
