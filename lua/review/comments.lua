@@ -186,6 +186,24 @@ local function refresh_marks(file, side)
   marks.render_for_buffer(vim.api.nvim_get_current_buf(), side or "new", file)
 end
 
+--- Refresh marks after a bulk operation that may touch several files (delete_multi).
+--- In a codediff session, marks.refresh() re-renders the diff buffers. Outside a
+--- session, re-render every open normal buffer so deletions in any of them are
+--- reflected without a manual :Review marks toggle. render_for_buffer clears the
+--- namespace first, so removed comments drop their marks.
+local function refresh_marks_bulk()
+  if hooks.get_session() then
+    marks.refresh()
+    return
+  end
+  local review = require("review")
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_is_loaded(bufnr) then
+      review._render_marks_for_buffer(bufnr)
+    end
+  end
+end
+
 function M.edit_at_cursor()
   local file, line, side = cursor_target()
   if not file or not line then
@@ -420,7 +438,7 @@ function M.delete_multi()
                 end
               end
               vim.schedule(function()
-                marks.refresh()
+                refresh_marks_bulk()
               end)
               notify(string.format("Deleted %d comment(s)", #selected), vim.log.levels.INFO)
             end
@@ -436,7 +454,7 @@ function M.delete_multi()
       local comment = comment_map[choice]
       if comment then
         store.delete(comment.id)
-        vim.schedule(function() marks.refresh() end)
+        vim.schedule(function() refresh_marks_bulk() end)
         notify("Comment deleted", vim.log.levels.INFO)
       end
     end)
