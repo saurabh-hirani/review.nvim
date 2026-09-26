@@ -11,6 +11,11 @@ local comments = require("review.comments")
 
 local initialized = false
 local augroup = nil
+-- Whether review marks are currently shown on normal (non-codediff) buffers.
+-- Initialized from config.marks.default_visible inside setup(); toggled by
+-- :Review marks. Declared here (above setup) so setup() and the autocmds close
+-- over the same local rather than an accidental global.
+local marks_visible = false
 -- Only attach review hooks/keymaps to codediff sessions that review itself
 -- opened (via :Review). A bare :CodeDiff session stays plain codediff.
 local review_active = false
@@ -23,6 +28,13 @@ function M.setup(opts)
 
   config.setup(opts)
   highlights.setup()
+
+  -- Honor marks.default_visible: start with marks shown on every normal buffer.
+  -- Rendering of already-loaded buffers happens at the end of setup once the
+  -- autocmds are in place.
+  if config.get().marks.default_visible then
+    marks_visible = true
+  end
 
   -- Set up autocmd to detect CodeDiff sessions
   augroup = vim.api.nvim_create_augroup("review", { clear = true })
@@ -85,6 +97,24 @@ function M.setup(opts)
   })
 
   initialized = true
+
+  -- If marks start visible (config.marks.default_visible), render them now for
+  -- every buffer already loaded at setup time. Buffers opened later are handled
+  -- by the BufEnter/BufReadPost autocmd above. Deferred so it runs after the
+  -- session's store is available and startup buffers have names.
+  if marks_visible then
+    vim.defer_fn(function()
+      if hooks.get_session() then
+        require("review.marks").refresh()
+      else
+        for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_loaded(bufnr) then
+            M._render_marks_for_buffer(bufnr)
+          end
+        end
+      end
+    end, 50)
+  end
 end
 
 -- Handle file selection: refresh hooks/keymaps without stealing focus
@@ -227,8 +257,6 @@ function M.close()
   storage.clear_revisions()
   review_active = false
 end
-
-local marks_visible = false
 
 --- Render review marks for a single normal (non-codediff) buffer, resolving its
 --- path relative to the buffer file's OWN git root (not nvim's cwd) so files

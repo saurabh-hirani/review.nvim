@@ -285,6 +285,22 @@ opts = {
 
 `panes = { "right" }` suits editor-left / agent-right; use another direction, `"current"`, or an explicit pane id (e.g. `"w1:p2"`) to match your layout. Set `auto_select_panes = { "right" }` to always fire to the right pane without the picker, and `send_enter = true` to submit immediately in an agent CLI. With `focus = true` (the default) the target pane is focused after sending so you land at the agent; focus-follow works for directional targets only, since herdr's `pane focus` is direction-based. The picker uses fzf-lua when available and falls back to `vim.ui.select`. Like sidekick, it honours `export.types`.
 
+### Marks visibility
+
+Comment marks (the gutter icon, comment box, and line tint) are how saved comments show up in a buffer. By default they start hidden and `:Review marks` toggles them on — handy when you reopen a file outside a review and want to see the comments you left.
+
+Set `marks.default_visible = true` to flip that: marks render automatically on every normal buffer from startup, and any buffer you open later keeps them in sync. `:Review marks` still toggles them off and back on within the session.
+
+```lua
+opts = {
+  marks = {
+    default_visible = true, -- show marks on every buffer without running :Review marks first
+  },
+}
+```
+
+Inside a `:Review` diff session marks always render regardless of this option; `default_visible` only governs normal (non-diff) buffers.
+
 ### Keymap options
 
 All keymaps can be set to `false` to disable them. Per-type add-keymaps are **not** listed here; they are derived from `add_type_prefix` + each type's `key`.
@@ -333,6 +349,7 @@ All keymaps can be set to `false` to disable them. Per-type add-keymaps are **no
 | `popup.type_order` | `{}` | Active types, in order |
 | `popup.default_type` | `nil` | Type selected first in the picker |
 | `storage.expiry_days` | `0` (never) | Days a saved review survives without a change; `0` or `false` keeps reviews forever |
+| `marks.default_visible` | `false` | Show comment marks on every buffer automatically; `:Review marks` still toggles them (see [Marks visibility](#marks-visibility)) |
 
 ### Keybindings in the diff view
 
