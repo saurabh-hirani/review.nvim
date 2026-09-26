@@ -10,6 +10,10 @@ local M = {}
 ---@field tmux ReviewTmuxConfig
 ---@field herdr ReviewHerdrConfig
 ---@field quickfix ReviewQuickfixConfig
+---@field marks ReviewMarksConfig
+
+---@class ReviewMarksConfig
+---@field default_visible boolean show marks on every normal buffer by default, without needing :Review marks (default false)
 
 ---@class CommentType
 ---@field key string
@@ -187,6 +191,13 @@ M.defaults = {
     -- stored path relative to the git root; "absolute" shows the full path.
     -- Jumping works either way; this only affects what the quickfix line shows.
     path_style = "relative",
+  },
+  marks = {
+    -- false (default): marks start hidden; :Review marks toggles them on.
+    -- true: marks are shown on every normal buffer automatically from startup,
+    -- and the BufEnter/BufReadPost autocmd keeps newly opened buffers in sync.
+    -- :Review marks still toggles them off/on within the session.
+    default_visible = false,
   },
 }
 
